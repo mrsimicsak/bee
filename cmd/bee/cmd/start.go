@@ -152,6 +152,7 @@ Welcome to the Swarm.... Bzzz Bzzzz Bzzzz
 				SwapFactoryAddress:       c.config.GetString(optionNameSwapFactoryAddress),
 				SwapInitialDeposit:       c.config.GetString(optionNameSwapInitialDeposit),
 				SwapEnable:               c.config.GetBool(optionNameSwapEnable),
+				FullNodeMode:             c.config.GetBool(optionNameFullNode),
 			})
 			if err != nil {
 				return err

@@ -16,6 +16,7 @@ import (
 	"github.com/ethersphere/bee/pkg/addressbook"
 	"github.com/ethersphere/bee/pkg/bzz"
 	beecrypto "github.com/ethersphere/bee/pkg/crypto"
+	"github.com/ethersphere/bee/pkg/lightnode"
 	"github.com/ethersphere/bee/pkg/logging"
 	"github.com/ethersphere/bee/pkg/p2p"
 	"github.com/ethersphere/bee/pkg/p2p/libp2p/internal/blocklist"
@@ -65,8 +66,13 @@ type Service struct {
 	logger            logging.Logger
 	tracer            *tracing.Tracer
 	ready             chan struct{}
+	lightNodes        lightnodes
+	protocolsmu       sync.RWMutex
+}
 
-	protocolsmu sync.RWMutex
+type lightnodes interface {
+	Connected(p2p.Peer)
+	Disconnected(p2p.Peer)
 }
 
 type Options struct {
@@ -75,11 +81,11 @@ type Options struct {
 	EnableWS       bool
 	EnableQUIC     bool
 	Standalone     bool
-	LightNode      bool
+	FullNode       bool
 	WelcomeMessage string
 }
 
-func New(ctx context.Context, signer beecrypto.Signer, networkID uint64, overlay swarm.Address, addr string, ab addressbook.Putter, storer storage.StateStorer, logger logging.Logger, tracer *tracing.Tracer, o Options) (*Service, error) {
+func New(ctx context.Context, signer beecrypto.Signer, networkID uint64, overlay swarm.Address, addr string, ab addressbook.Putter, storer storage.StateStorer, lightNodes *lightnode.Container, logger logging.Logger, tracer *tracing.Tracer, o Options) (*Service, error) {
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
 		return nil, fmt.Errorf("address: %w", err)
@@ -202,7 +208,7 @@ func New(ctx context.Context, signer beecrypto.Signer, networkID uint64, overlay
 		advertisableAddresser = natAddrResolver
 	}
 
-	handshakeService, err := handshake.New(signer, advertisableAddresser, overlay, networkID, o.LightNode, o.WelcomeMessage, logger)
+	handshakeService, err := handshake.New(signer, advertisableAddresser, overlay, networkID, o.FullNode, o.WelcomeMessage, logger)
 	if err != nil {
 		return nil, fmt.Errorf("handshake service: %w", err)
 	}
@@ -224,6 +230,7 @@ func New(ctx context.Context, signer beecrypto.Signer, networkID uint64, overlay
 		tracer:            tracer,
 		connectionBreaker: breaker.NewBreaker(breaker.Options{}), // use default options
 		ready:             make(chan struct{}),
+		lightNodes:        lightNodes,
 	}
 
 	peerRegistry.setDisconnecter(s)
@@ -314,7 +321,9 @@ func New(ctx context.Context, signer beecrypto.Signer, networkID uint64, overlay
 		}
 		s.protocolsmu.RUnlock()
 
-		if s.notifier != nil {
+		if i.Light {
+			s.lightNodes.Connected(peer)
+		} else if s.notifier != nil {
 			if err := s.notifier.Connected(ctx, peer); err != nil {
 				s.logger.Debugf("notifier.Connected: peer disconnected: %s: %v", i.BzzAddress.Overlay, err)
 				// note: this cannot be unit tested since the node
@@ -331,10 +340,15 @@ func New(ctx context.Context, signer beecrypto.Signer, networkID uint64, overlay
 			}
 		}
 
-		s.metrics.HandledStreamCount.Inc()
-		s.logger.Debugf("successfully connected to peer %s (inbound)", i.BzzAddress.ShortString())
-		s.logger.Infof("successfully connected to peer %s (inbound)", i.BzzAddress.Overlay)
+		var lightMode string
 
+		if i.Light {
+			lightMode = " (light)"
+		}
+
+		s.metrics.HandledStreamCount.Inc()
+		s.logger.Debugf("successfully connected to peer %s (inbound)%s", i.BzzAddress.ShortString(), lightMode)
+		s.logger.Infof("successfully connected to peer %s (inbound)%s", i.BzzAddress.Overlay, lightMode)
 	})
 
 	h.Network().SetConnHandler(func(_ network.Conn) {
@@ -564,8 +578,15 @@ func (s *Service) Connect(ctx context.Context, addr ma.Multiaddr) (address *bzz.
 	s.protocolsmu.RUnlock()
 
 	s.metrics.CreatedConnectionCount.Inc()
-	s.logger.Debugf("successfully connected to peer %s (outbound)", i.BzzAddress.ShortString())
-	s.logger.Infof("successfully connected to peer %s (outbound)", i.BzzAddress.Overlay)
+
+	var lightMode string
+
+	if i.Light {
+		lightMode = " (light)"
+	}
+
+	s.logger.Debugf("successfully connected to peer %s (outbound)%s", i.BzzAddress.ShortString(), lightMode)
+	s.logger.Infof("successfully connected to peer %s (outbound)%s", i.BzzAddress.Overlay, lightMode)
 	return i.BzzAddress, nil
 }
 
@@ -593,6 +614,9 @@ func (s *Service) Disconnect(overlay swarm.Address) error {
 	if s.notifier != nil {
 		s.notifier.Disconnected(peer)
 	}
+	if s.lightNodes != nil {
+		s.lightNodes.Disconnected(peer)
+	}
 
 	return nil
 }
@@ -613,6 +637,9 @@ func (s *Service) disconnected(address swarm.Address) {
 
 	if s.notifier != nil {
 		s.notifier.Disconnected(peer)
+	}
+	if s.lightNodes != nil {
+		s.lightNodes.Disconnected(peer)
 	}
 }
 
