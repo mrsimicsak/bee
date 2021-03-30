@@ -123,6 +123,14 @@ func (k *kadTopology) WithNNLowWatermark(wm int) {
 func (k *kadTopology) WithDepth(d uint8) {
 	k.Depth = d
 }
+func (k *kadTopology) WithLightNodes(connected, poulation uint, connectedPeers, disconnectedPeers []string) {
+	k.LightNodes = binInfo{
+		BinPopulation:     poulation,
+		BinConnected:      connected,
+		ConnectedPeers:    connectedPeers,
+		DisconnectedPeers: disconnectedPeers,
+	}
+}
 
 func (s *Service) topologyHandler(w http.ResponseWriter, r *http.Request) {
 	params := s.topologyDriver.Snapshot()
