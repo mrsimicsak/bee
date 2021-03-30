@@ -27,6 +27,8 @@ func (c *Container) Connected(peer p2p.Peer) {
 
 func (c *Container) Disconnected(peer p2p.Peer) {
 	addr := peer.Address
-	c.connectedPeers.Remove(addr, defaultBin)
-	c.disconnectedPeers.Add(addr, defaultBin)
+	if found := c.connectedPeers.Exists(addr); found {
+		c.connectedPeers.Remove(addr, defaultBin)
+		c.disconnectedPeers.Add(addr, defaultBin)
+	}
 }
