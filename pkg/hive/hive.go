@@ -64,7 +64,6 @@ func (s *Service) Protocol() p2p.ProtocolSpec {
 	}
 }
 
-// this IS gossip - only broadcasts to peers in addressbook!
 func (s *Service) BroadcastPeers(ctx context.Context, addressee swarm.Address, peers ...swarm.Address) error {
 	max := maxBatchSize
 	s.metrics.BroadcastPeers.Inc()
