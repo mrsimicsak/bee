@@ -19,6 +19,6 @@ func TestTopologyOK(t *testing.T) {
 	jsonhttptest.Request(t, testServer.Client, http.MethodGet, "/topology", http.StatusOK, opts)
 
 	if len(body) == 0 {
-		t.Error("empty response")
+		t.Error("expected a non empty response, got empty")
 	}
 }
