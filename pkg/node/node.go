@@ -54,6 +54,7 @@ import (
 	"github.com/ethersphere/bee/pkg/storage"
 	"github.com/ethersphere/bee/pkg/swarm"
 	"github.com/ethersphere/bee/pkg/tags"
+	"github.com/ethersphere/bee/pkg/topology/announce"
 	"github.com/ethersphere/bee/pkg/topology/kademlia"
 	"github.com/ethersphere/bee/pkg/topology/lightnode"
 	"github.com/ethersphere/bee/pkg/tracing"
@@ -257,7 +258,8 @@ func NewBee(addr string, swarmAddress swarm.Address, publicKey ecdsa.PublicKey, 
 		)
 	}
 
-	lightNodes := lightnode.NewContainer()
+	announcer := announce.NewAnnouncer(nil, nil, logger)
+	lightNodes := lightnode.NewContainer(announcer)
 
 	p2ps, err := libp2p.New(p2pCtx, signer, networkID, swarmAddress, addr, addressbook, stateStore, lightNodes, logger, tracer, libp2p.Options{
 		PrivateKey:     libp2pPrivateKey,
@@ -272,6 +274,8 @@ func NewBee(addr string, swarmAddress swarm.Address, publicKey ecdsa.PublicKey, 
 		return nil, fmt.Errorf("p2p service: %w", err)
 	}
 	b.p2pService = p2ps
+
+	announcer.SetP2P(p2ps)
 
 	if !o.Standalone {
 		if natManager := p2ps.NATManager(); natManager != nil {
@@ -301,6 +305,8 @@ func NewBee(addr string, swarmAddress swarm.Address, publicKey ecdsa.PublicKey, 
 		return nil, fmt.Errorf("hive service: %w", err)
 	}
 
+	announcer.SetDiscovery(hive)
+
 	var bootnodes []ma.Multiaddr
 	if o.Standalone {
 		logger.Info("Starting node in standalone mode, no p2p connections will be made or accepted")
@@ -320,7 +326,7 @@ func NewBee(addr string, swarmAddress swarm.Address, publicKey ecdsa.PublicKey, 
 	var settlement settlement.Interface
 	var swapService *swap.Service
 
-	kad := kademlia.New(swarmAddress, addressbook, hive, p2ps, logger, kademlia.Options{Bootnodes: bootnodes, StandaloneMode: o.Standalone, BootnodeMode: o.BootnodeMode})
+	kad := kademlia.New(swarmAddress, addressbook, hive, p2ps, announcer, logger, kademlia.Options{Bootnodes: bootnodes, StandaloneMode: o.Standalone, BootnodeMode: o.BootnodeMode})
 	b.topologyCloser = kad
 	hive.SetAddPeersHandler(kad.AddPeers)
 	p2ps.SetPickyNotifier(kad)
@@ -461,9 +467,9 @@ func NewBee(addr string, swarmAddress swarm.Address, publicKey ecdsa.PublicKey, 
 		logger.Info("starting in full mode")
 	} else {
 		logger.Info("starting in light mode")
-		p2p.WithBlocklistStreams(1*time.Minute, retrieveProtocolSpec)
-		p2p.WithBlocklistStreams(1*time.Minute, pushSyncProtocolSpec)
-		p2p.WithBlocklistStreams(1*time.Minute, pullSyncProtocolSpec)
+		p2p.WithBlocklistStreams(p2p.DefaultBlocklistTime, retrieveProtocolSpec)
+		p2p.WithBlocklistStreams(p2p.DefaultBlocklistTime, pushSyncProtocolSpec)
+		p2p.WithBlocklistStreams(p2p.DefaultBlocklistTime, pullSyncProtocolSpec)
 	}
 
 	if err = p2ps.AddProtocol(retrieveProtocolSpec); err != nil {

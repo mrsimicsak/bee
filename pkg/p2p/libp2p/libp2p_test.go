@@ -67,7 +67,7 @@ func newService(t *testing.T, networkID uint64, o libp2pServiceOpts) (s *libp2p.
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	lightnodes := lightnode.NewContainer() //TODO to mock or not to mock?
+	lightnodes := lightnode.NewContainer(nil) //TODO to mock or not to mock?
 
 	s, err = libp2p.New(ctx, crypto.NewDefaultSigner(swarmKey), networkID, overlay, addr, o.Addressbook, statestore, lightnodes, o.Logger, nil, o.libp2pOpts)
 	if err != nil {

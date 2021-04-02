@@ -94,6 +94,7 @@ type StreamSpec struct {
 // Peer holds information about a Peer.
 type Peer struct {
 	Address swarm.Address `json:"address"`
+	Light   bool          `json:"light"`
 }
 
 // HandlerFunc handles a received Stream from a Peer.

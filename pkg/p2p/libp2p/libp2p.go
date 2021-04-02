@@ -71,7 +71,7 @@ type Service struct {
 }
 
 type lightnodes interface {
-	Connected(p2p.Peer)
+	Connected(context.Context, p2p.Peer)
 	Disconnected(p2p.Peer)
 }
 
@@ -324,7 +324,7 @@ func New(ctx context.Context, signer beecrypto.Signer, networkID uint64, overlay
 		s.protocolsmu.RUnlock()
 
 		if i.Light {
-			s.lightNodes.Connected(peer)
+			s.lightNodes.Connected(ctx, peer)
 		} else if s.notifier != nil {
 			if err := s.notifier.Connected(ctx, peer); err != nil {
 				s.logger.Debugf("notifier.Connected: peer disconnected: %s: %v", i.BzzAddress.Overlay, err)
