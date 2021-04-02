@@ -16,7 +16,6 @@ import (
 	"github.com/ethersphere/bee/pkg/addressbook"
 	"github.com/ethersphere/bee/pkg/bzz"
 	beecrypto "github.com/ethersphere/bee/pkg/crypto"
-	"github.com/ethersphere/bee/pkg/lightnode"
 	"github.com/ethersphere/bee/pkg/logging"
 	"github.com/ethersphere/bee/pkg/p2p"
 	"github.com/ethersphere/bee/pkg/p2p/libp2p/internal/blocklist"
@@ -24,6 +23,7 @@ import (
 	handshake "github.com/ethersphere/bee/pkg/p2p/libp2p/internal/handshake"
 	"github.com/ethersphere/bee/pkg/storage"
 	"github.com/ethersphere/bee/pkg/swarm"
+	"github.com/ethersphere/bee/pkg/topology/lightnode"
 	"github.com/ethersphere/bee/pkg/tracing"
 	"github.com/libp2p/go-libp2p"
 	autonat "github.com/libp2p/go-libp2p-autonat"
@@ -301,12 +301,14 @@ func New(ctx context.Context, signer beecrypto.Signer, networkID uint64, overlay
 			return
 		}
 
-		err = s.addressbook.Put(i.BzzAddress.Overlay, *i.BzzAddress)
-		if err != nil {
-			s.logger.Debugf("handshake: addressbook put error %s: %v", peerID, err)
-			s.logger.Errorf("unable to persist peer %v", peerID)
-			_ = s.Disconnect(i.BzzAddress.Overlay)
-			return
+		if !i.Light {
+			err = s.addressbook.Put(i.BzzAddress.Overlay, *i.BzzAddress)
+			if err != nil {
+				s.logger.Debugf("handshake: addressbook put error %s: %v", peerID, err)
+				s.logger.Errorf("unable to persist peer %v", peerID)
+				_ = s.Disconnect(i.BzzAddress.Overlay)
+				return
+			}
 		}
 
 		peer := p2p.Peer{Address: i.BzzAddress.Overlay}
@@ -347,8 +349,8 @@ func New(ctx context.Context, signer beecrypto.Signer, networkID uint64, overlay
 		}
 
 		s.metrics.HandledStreamCount.Inc()
-		s.logger.Debugf("successfully connected to peer %s (inbound)%s", i.BzzAddress.ShortString(), lightMode)
-		s.logger.Infof("successfully connected to peer %s (inbound)%s", i.BzzAddress.Overlay, lightMode)
+		s.logger.Debugf("successfully connected to peer %s%s (inbound)", i.BzzAddress.ShortString(), lightMode)
+		s.logger.Infof("successfully connected to peer %s%s (inbound)", i.BzzAddress.Overlay, lightMode)
 	})
 
 	h.Network().SetConnHandler(func(_ network.Conn) {
@@ -560,10 +562,12 @@ func (s *Service) Connect(ctx context.Context, addr ma.Multiaddr) (address *bzz.
 		return nil, fmt.Errorf("connect full close %w", err)
 	}
 
-	err = s.addressbook.Put(i.BzzAddress.Overlay, *i.BzzAddress)
-	if err != nil {
-		_ = s.Disconnect(i.BzzAddress.Overlay)
-		return nil, fmt.Errorf("storing bzz address: %w", err)
+	if !i.Light {
+		err = s.addressbook.Put(i.BzzAddress.Overlay, *i.BzzAddress)
+		if err != nil {
+			_ = s.Disconnect(i.BzzAddress.Overlay)
+			return nil, fmt.Errorf("storing bzz address: %w", err)
+		}
 	}
 
 	s.protocolsmu.RLock()
@@ -585,8 +589,8 @@ func (s *Service) Connect(ctx context.Context, addr ma.Multiaddr) (address *bzz.
 		lightMode = " (light)"
 	}
 
-	s.logger.Debugf("successfully connected to peer %s (outbound)%s", i.BzzAddress.ShortString(), lightMode)
-	s.logger.Infof("successfully connected to peer %s (outbound)%s", i.BzzAddress.Overlay, lightMode)
+	s.logger.Debugf("successfully connected to peer %s%s (outbound)", i.BzzAddress.ShortString(), lightMode)
+	s.logger.Infof("successfully connected to peer %s%s (outbound)", i.BzzAddress.Overlay, lightMode)
 	return i.BzzAddress, nil
 }
 

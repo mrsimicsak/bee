@@ -22,8 +22,6 @@ import (
 	"github.com/ethersphere/bee/pkg/crypto"
 	beeCrypto "github.com/ethersphere/bee/pkg/crypto"
 	"github.com/ethersphere/bee/pkg/discovery/mock"
-	"github.com/ethersphere/bee/pkg/kademlia"
-	"github.com/ethersphere/bee/pkg/kademlia/pslice"
 	"github.com/ethersphere/bee/pkg/logging"
 	"github.com/ethersphere/bee/pkg/p2p"
 	p2pmock "github.com/ethersphere/bee/pkg/p2p/mock"
@@ -31,6 +29,8 @@ import (
 	"github.com/ethersphere/bee/pkg/swarm"
 	"github.com/ethersphere/bee/pkg/swarm/test"
 	"github.com/ethersphere/bee/pkg/topology"
+	"github.com/ethersphere/bee/pkg/topology/kademlia"
+	"github.com/ethersphere/bee/pkg/topology/pslice"
 )
 
 func init() {

@@ -98,4 +98,5 @@ type KadParams struct {
 	NNLowWatermark int       `json:"nnLowWatermark"` // low watermark for depth calculation
 	Depth          uint8     `json:"depth"`          // current depth
 	Bins           KadBins   `json:"bins"`           // individual bin info
+	LightNodes     BinInfo   `json:"lightNodes"`     // light nodes bin info
 }
