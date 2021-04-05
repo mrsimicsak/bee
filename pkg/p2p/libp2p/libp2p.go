@@ -422,6 +422,9 @@ func (s *Service) AddProtocol(p p2p.ProtocolSpec) (err error) {
 
 				var bpe *p2p.BlockPeerError
 				if errors.As(err, &bpe) {
+					if errors.Is(err, p2p.ErrUnexpected) {
+						s.metrics.UnexpectedProtocolReqCount.Inc()
+					}
 					if err := s.Blocklist(overlay, bpe.Duration()); err != nil {
 						logger.Debugf("blocklist: could not blocklist peer %s: %v", peerID, err)
 						logger.Errorf("unable to blocklist peer %v", peerID)
