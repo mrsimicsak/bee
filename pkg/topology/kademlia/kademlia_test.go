@@ -29,7 +29,6 @@ import (
 	"github.com/ethersphere/bee/pkg/swarm"
 	"github.com/ethersphere/bee/pkg/swarm/test"
 	"github.com/ethersphere/bee/pkg/topology"
-	"github.com/ethersphere/bee/pkg/topology/announce"
 	"github.com/ethersphere/bee/pkg/topology/kademlia"
 	"github.com/ethersphere/bee/pkg/topology/pslice"
 )
@@ -740,7 +739,7 @@ func TestClosestPeer(t *testing.T) {
 	disc := mock.NewDiscovery()
 	ab := addressbook.New(mockstate.NewStateStore())
 
-	kad := kademlia.New(base, ab, disc, p2pMock(ab, nil, nil, nil), nil, logger, kademlia.Options{})
+	kad := kademlia.New(base, ab, disc, p2pMock(ab, nil, nil, nil), logger, kademlia.Options{})
 	if err := kad.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -1018,8 +1017,7 @@ func newTestKademlia(connCounter, failedConnCounter *int32, kadOpts kademlia.Opt
 		p2p    = p2pMock(ab, signer, connCounter, failedConnCounter) // p2p mock
 		logger = logging.New(ioutil.Discard, 0)                      // logger
 		disc   = mock.NewDiscovery()                                 // mock discovery protocol
-		ann    = announce.NewAnnouncer(disc, p2p, logger)
-		kad    = kademlia.New(base, ab, disc, p2p, ann, logger, kadOpts) // kademlia instance
+		kad    = kademlia.New(base, ab, disc, p2p, logger, kadOpts)  // kademlia instance
 	)
 
 	return base, kad, ab, disc, signer

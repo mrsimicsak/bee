@@ -323,10 +323,13 @@ func New(ctx context.Context, signer beecrypto.Signer, networkID uint64, overlay
 		}
 		s.protocolsmu.RUnlock()
 
-		if i.Light {
-			s.lightNodes.Connected(ctx, peer)
-		} else if s.notifier != nil {
-			if err := s.notifier.Connected(ctx, peer); err != nil {
+		if s.notifier != nil {
+			if i.Light { //light node announces explicitly
+				s.lightNodes.Connected(ctx, peer)
+				if err := s.notifier.Announce(ctx, peer.Address); err != nil {
+					s.logger.Debugf("notifier.Announce: %s: %v", peer.Address.String(), err)
+				}
+			} else if err := s.notifier.Connected(ctx, peer); err != nil { // full node announces implicitly
 				s.logger.Debugf("notifier.Connected: peer disconnected: %s: %v", i.BzzAddress.Overlay, err)
 				// note: this cannot be unit tested since the node
 				// waiting on handshakeStream.FullClose() on the other side

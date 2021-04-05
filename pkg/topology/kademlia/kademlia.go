@@ -20,7 +20,6 @@ import (
 	"github.com/ethersphere/bee/pkg/p2p"
 	"github.com/ethersphere/bee/pkg/swarm"
 	"github.com/ethersphere/bee/pkg/topology"
-	"github.com/ethersphere/bee/pkg/topology/announce"
 	"github.com/ethersphere/bee/pkg/topology/pslice"
 	ma "github.com/multiformats/go-multiaddr"
 )
@@ -61,7 +60,6 @@ type Kad struct {
 	discovery         discovery.Driver      // the discovery driver
 	addressBook       addressbook.Interface // address book to get underlays
 	p2p               p2p.Service           // p2p service to connect to nodes with
-	announcer         *announce.Announcer   // service to announce
 	saturationFunc    binSaturationFunc     // pluggable saturation function
 	bitSuffixLength   int                   // additional depth of common prefix for bin
 	commonBinPrefixes [][]swarm.Address     // list of address prefixes for each bin
@@ -89,7 +87,7 @@ type retryInfo struct {
 }
 
 // New returns a new Kademlia.
-func New(base swarm.Address, addressbook addressbook.Interface, discovery discovery.Driver, p2p p2p.Service, announcer *announce.Announcer, logger logging.Logger, o Options) *Kad {
+func New(base swarm.Address, addressbook addressbook.Interface, discovery discovery.Driver, p2p p2p.Service, logger logging.Logger, o Options) *Kad {
 	if o.SaturationFunc == nil {
 		o.SaturationFunc = binSaturated
 	}
@@ -102,7 +100,6 @@ func New(base swarm.Address, addressbook addressbook.Interface, discovery discov
 		discovery:         discovery,
 		addressBook:       addressbook,
 		p2p:               p2p,
-		announcer:         announcer,
 		saturationFunc:    o.SaturationFunc,
 		bitSuffixLength:   o.BitSuffixLength,
 		commonBinPrefixes: make([][]swarm.Address, int(swarm.MaxBins)),
@@ -651,7 +648,47 @@ func (k *Kad) connect(ctx context.Context, peer swarm.Address, ma ma.Multiaddr, 
 		return errOverlayMismatch
 	}
 
-	return k.announcer.Announce(ctx, k.connectedPeers, peer)
+	return k.Announce(ctx, peer)
+}
+
+// announce a newly connected peer to our connected peers, but also
+// notify the peer about our already connected peers
+func (k *Kad) Announce(ctx context.Context, peer swarm.Address) error {
+	addrs := []swarm.Address{}
+
+	_ = k.connectedPeers.EachBinRev(func(connectedPeer swarm.Address, _ uint8) (bool, bool, error) {
+		if connectedPeer.Equal(peer) {
+			return false, false, nil
+		}
+
+		addrs = append(addrs, connectedPeer)
+
+		// this needs to be in a separate goroutine since a peer we are gossipping to might
+		// be slow and since this function is called with the same context from kademlia connect
+		// function, this might result in the unfortunate situation where we end up on
+		// `err := k.discovery.BroadcastPeers(ctx, peer, addrs...)` with an already expired context
+		// indicating falsely, that the peer connection has timed out.
+		k.wg.Add(1)
+		go func(connectedPeer swarm.Address) {
+			defer k.wg.Done()
+			if err := k.discovery.BroadcastPeers(context.Background(), connectedPeer, peer); err != nil {
+				k.logger.Debugf("could not gossip peer %s to peer %s: %v", peer, connectedPeer, err)
+			}
+		}(connectedPeer)
+
+		return false, false, nil
+	})
+
+	if len(addrs) == 0 {
+		return nil
+	}
+
+	err := k.discovery.BroadcastPeers(ctx, peer, addrs...)
+	if err != nil {
+		_ = k.p2p.Disconnect(peer)
+	}
+
+	return err
 }
 
 // AddPeers adds peers to the knownPeers list.
@@ -710,7 +747,7 @@ func (k *Kad) Connected(ctx context.Context, peer p2p.Peer) error {
 }
 
 func (k *Kad) connected(ctx context.Context, addr swarm.Address) error {
-	if err := k.announcer.Announce(ctx, k.connectedPeers, addr); err != nil {
+	if err := k.Announce(ctx, addr); err != nil {
 		return err
 	}
 

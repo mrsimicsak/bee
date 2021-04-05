@@ -617,6 +617,10 @@ func (n *notifiee) Pick(p p2p.Peer) bool {
 	return n.pick
 }
 
+func (n *notifiee) Announce(context.Context, swarm.Address) error {
+	return nil
+}
+
 func mockNotifier(c cFunc, d dFunc, pick bool) p2p.PickyNotifier {
 	return &notifiee{connected: c, disconnected: d, pick: pick}
 }
