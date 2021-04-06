@@ -324,8 +324,9 @@ func New(ctx context.Context, signer beecrypto.Signer, networkID uint64, overlay
 		s.protocolsmu.RUnlock()
 
 		if s.notifier != nil {
-			if i.Light { //light node announces explicitly
+			if i.Light {
 				s.lightNodes.Connected(ctx, peer)
+				//light node announces explicitly
 				if err := s.notifier.Announce(ctx, peer.Address); err != nil {
 					s.logger.Debugf("notifier.Announce: %s: %v", peer.Address.String(), err)
 				}
