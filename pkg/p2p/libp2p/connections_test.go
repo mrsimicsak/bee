@@ -24,9 +24,7 @@ import (
 )
 
 func TestAddresses(t *testing.T) {
-	s, _ := newService(t, 1, libp2pServiceOpts{libp2pOpts: libp2p.Options{
-		FullNode: true,
-	}})
+	s, _ := newService(t, 1, libp2pServiceOpts{})
 
 	addrs, err := s.Addresses()
 	if err != nil {
@@ -41,13 +39,9 @@ func TestConnectDisconnect(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	s1, overlay1 := newService(t, 1, libp2pServiceOpts{libp2pOpts: libp2p.Options{
-		FullNode: true,
-	}})
+	s1, overlay1 := newService(t, 1, libp2pServiceOpts{})
 
-	s2, overlay2 := newService(t, 1, libp2pServiceOpts{libp2pOpts: libp2p.Options{
-		FullNode: true,
-	}})
+	s2, overlay2 := newService(t, 1, libp2pServiceOpts{})
 
 	addr := serviceUnderlayAddress(t, s1)
 
@@ -71,13 +65,9 @@ func TestDoubleConnect(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	s1, overlay1 := newService(t, 1, libp2pServiceOpts{libp2pOpts: libp2p.Options{
-		FullNode: true,
-	}})
+	s1, overlay1 := newService(t, 1, libp2pServiceOpts{})
 
-	s2, overlay2 := newService(t, 1, libp2pServiceOpts{libp2pOpts: libp2p.Options{
-		FullNode: true,
-	}})
+	s2, overlay2 := newService(t, 1, libp2pServiceOpts{})
 
 	addr := serviceUnderlayAddress(t, s1)
 
@@ -100,13 +90,9 @@ func TestDoubleDisconnect(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	s1, overlay1 := newService(t, 1, libp2pServiceOpts{libp2pOpts: libp2p.Options{
-		FullNode: true,
-	}})
+	s1, overlay1 := newService(t, 1, libp2pServiceOpts{})
 
-	s2, overlay2 := newService(t, 1, libp2pServiceOpts{libp2pOpts: libp2p.Options{
-		FullNode: true,
-	}})
+	s2, overlay2 := newService(t, 1, libp2pServiceOpts{})
 
 	addr := serviceUnderlayAddress(t, s1)
 
@@ -137,13 +123,9 @@ func TestMultipleConnectDisconnect(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	s1, overlay1 := newService(t, 1, libp2pServiceOpts{libp2pOpts: libp2p.Options{
-		FullNode: true,
-	}})
+	s1, overlay1 := newService(t, 1, libp2pServiceOpts{})
 
-	s2, overlay2 := newService(t, 1, libp2pServiceOpts{libp2pOpts: libp2p.Options{
-		FullNode: true,
-	}})
+	s2, overlay2 := newService(t, 1, libp2pServiceOpts{})
 
 	addr := serviceUnderlayAddress(t, s1)
 
@@ -182,13 +164,9 @@ func TestConnectDisconnectOnAllAddresses(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	s1, overlay1 := newService(t, 1, libp2pServiceOpts{libp2pOpts: libp2p.Options{
-		FullNode: true,
-	}})
+	s1, overlay1 := newService(t, 1, libp2pServiceOpts{})
 
-	s2, overlay2 := newService(t, 1, libp2pServiceOpts{libp2pOpts: libp2p.Options{
-		FullNode: true,
-	}})
+	s2, overlay2 := newService(t, 1, libp2pServiceOpts{})
 
 	addrs, err := s1.Addresses()
 	if err != nil {
@@ -216,9 +194,7 @@ func TestDoubleConnectOnAllAddresses(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	s1, overlay1 := newService(t, 1, libp2pServiceOpts{libp2pOpts: libp2p.Options{
-		FullNode: true,
-	}})
+	s1, overlay1 := newService(t, 1, libp2pServiceOpts{})
 
 	addrs, err := s1.Addresses()
 	if err != nil {
@@ -259,13 +235,9 @@ func TestDifferentNetworkIDs(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	s1, _ := newService(t, 1, libp2pServiceOpts{libp2pOpts: libp2p.Options{
-		FullNode: true,
-	}})
+	s1, _ := newService(t, 1, libp2pServiceOpts{})
 
-	s2, _ := newService(t, 2, libp2pServiceOpts{libp2pOpts: libp2p.Options{
-		FullNode: true,
-	}})
+	s2, _ := newService(t, 2, libp2pServiceOpts{})
 
 	addr := serviceUnderlayAddress(t, s1)
 
@@ -312,12 +284,8 @@ func TestConnectRepeatHandshake(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	s1, overlay1 := newService(t, 1, libp2pServiceOpts{libp2pOpts: libp2p.Options{
-		FullNode: true,
-	}})
-	s2, overlay2 := newService(t, 1, libp2pServiceOpts{libp2pOpts: libp2p.Options{
-		FullNode: true,
-	}})
+	s1, overlay1 := newService(t, 1, libp2pServiceOpts{})
+	s2, overlay2 := newService(t, 1, libp2pServiceOpts{})
 	addr := serviceUnderlayAddress(t, s1)
 
 	_, err := s2.Connect(ctx, addr)
@@ -347,12 +315,8 @@ func TestConnectRepeatHandshake(t *testing.T) {
 }
 
 func TestBlocklisting(t *testing.T) {
-	s1, overlay1 := newService(t, 1, libp2pServiceOpts{libp2pOpts: libp2p.Options{
-		FullNode: true,
-	}})
-	s2, overlay2 := newService(t, 1, libp2pServiceOpts{libp2pOpts: libp2p.Options{
-		FullNode: true,
-	}})
+	s1, overlay1 := newService(t, 1, libp2pServiceOpts{})
+	s2, overlay2 := newService(t, 1, libp2pServiceOpts{})
 
 	addr1 := serviceUnderlayAddress(t, s1)
 	addr2 := serviceUnderlayAddress(t, s2)
@@ -567,12 +531,8 @@ func TestWithDisconnectStreams(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	s1, overlay1 := newService(t, 1, libp2pServiceOpts{libp2pOpts: libp2p.Options{
-		FullNode: true,
-	}})
-	s2, overlay2 := newService(t, 1, libp2pServiceOpts{libp2pOpts: libp2p.Options{
-		FullNode: true,
-	}})
+	s1, overlay1 := newService(t, 1, libp2pServiceOpts{})
+	s2, overlay2 := newService(t, 1, libp2pServiceOpts{})
 
 	testSpec := p2p.ProtocolSpec{
 		Name:    testProtocolName,
@@ -615,12 +575,8 @@ func TestWithBlocklistStreams(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	s1, overlay1 := newService(t, 1, libp2pServiceOpts{libp2pOpts: libp2p.Options{
-		FullNode: true,
-	}})
-	s2, overlay2 := newService(t, 1, libp2pServiceOpts{libp2pOpts: libp2p.Options{
-		FullNode: true,
-	}})
+	s1, overlay1 := newService(t, 1, libp2pServiceOpts{})
+	s2, overlay2 := newService(t, 1, libp2pServiceOpts{})
 
 	testSpec := p2p.ProtocolSpec{
 		Name:    testProtocolName,
@@ -673,13 +629,6 @@ func expectStreamReset(t *testing.T, s io.ReadCloser, err error) {
 	}
 
 	if err == nil {
-		// because read could block without erroring we should also expect timeout
-		wait2sec := make(chan struct{})
-		go func() {
-			time.Sleep(2 * time.Second)
-			wait2sec <- struct{}{}
-		}()
-
 		readErr := make(chan error)
 		go func() {
 			_, err := s.Read(make([]byte, 10))
@@ -687,7 +636,8 @@ func expectStreamReset(t *testing.T, s io.ReadCloser, err error) {
 		}()
 
 		select {
-		case <-wait2sec:
+		// because read could block without erroring we should also expect timeout
+		case <-time.After(2 * time.Second):
 			t.Error("expected stream reset error, got timeout reading")
 		case err := <-readErr:
 			if !errors.Is(err, mux.ErrReset) {
