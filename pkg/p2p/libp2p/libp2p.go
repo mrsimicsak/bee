@@ -418,21 +418,25 @@ func (s *Service) AddProtocol(p p2p.ProtocolSpec) (err error) {
 			if err := ss.Handler(ctx, p2p.Peer{Address: overlay}, stream); err != nil {
 				var de *p2p.DisconnectError
 				if errors.As(err, &de) {
+					_ = stream.Reset()
 					_ = s.Disconnect(overlay)
 				}
 
 				var bpe *p2p.BlockPeerError
 				if errors.As(err, &bpe) {
-					if errors.Is(err, p2p.ErrUnexpected) {
-						s.metrics.UnexpectedProtocolReqCount.Inc()
-					}
 					if err := s.Blocklist(overlay, bpe.Duration()); err != nil {
 						logger.Debugf("blocklist: could not blocklist peer %s: %v", peerID, err)
 						logger.Errorf("unable to blocklist peer %v", peerID)
 					}
 					logger.Tracef("blocklisted a peer %s", peerID)
+					_ = stream.Reset()
+					_ = s.Disconnect(overlay)
+					logger.Tracef("disconnected a peer %s", peerID)
 				}
-
+				// count unexpected requests
+				if errors.Is(err, p2p.ErrUnexpected) {
+					s.metrics.UnexpectedProtocolReqCount.Inc()
+				}
 				logger.Debugf("could not handle protocol %s/%s: stream %s: peer %s: error: %v", p.Name, p.Version, ss.Name, overlay, err)
 				return
 			}

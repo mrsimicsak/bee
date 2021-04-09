@@ -7,6 +7,7 @@ package libp2p_test
 import (
 	"context"
 	"errors"
+	"io"
 	"sync"
 	"testing"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/ethersphere/bee/pkg/p2p/libp2p/internal/handshake"
 	"github.com/ethersphere/bee/pkg/statestore/mock"
 	"github.com/ethersphere/bee/pkg/swarm"
+	"github.com/libp2p/go-libp2p-core/mux"
 	libp2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 )
@@ -559,6 +561,140 @@ func TestTopologyOverSaturated(t *testing.T) {
 	expectPeersEventually(t, s2)
 
 	waitAddrSet(t, &n2disconnectedPeer.Address, &mtx, overlay1)
+}
+
+func TestWithDisconnectStreams(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	s1, overlay1 := newService(t, 1, libp2pServiceOpts{libp2pOpts: libp2p.Options{
+		FullNode: true,
+	}})
+	s2, overlay2 := newService(t, 1, libp2pServiceOpts{libp2pOpts: libp2p.Options{
+		FullNode: true,
+	}})
+
+	testSpec := p2p.ProtocolSpec{
+		Name:    testProtocolName,
+		Version: testProtocolVersion,
+		StreamSpecs: []p2p.StreamSpec{
+			{
+				Name: testStreamName,
+				Handler: func(c context.Context, p p2p.Peer, s p2p.Stream) error {
+					return nil
+				},
+			},
+		},
+	}
+
+	p2p.WithDisconnectStreams(testSpec)
+
+	_ = s1.AddProtocol(testSpec)
+
+	s1_underlay := serviceUnderlayAddress(t, s1)
+
+	expectPeers(t, s1)
+	expectPeers(t, s2)
+
+	if _, err := s2.Connect(ctx, s1_underlay); err != nil {
+		t.Fatal(err)
+	}
+
+	expectPeers(t, s1, overlay2)
+	expectPeers(t, s2, overlay1)
+
+	s, err := s2.NewStream(ctx, overlay1, nil, testProtocolName, testProtocolVersion, testStreamName)
+
+	expectStreamReset(t, s, err)
+
+	expectPeersEventually(t, s2)
+	expectPeersEventually(t, s1)
+}
+
+func TestWithBlocklistStreams(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	s1, overlay1 := newService(t, 1, libp2pServiceOpts{libp2pOpts: libp2p.Options{
+		FullNode: true,
+	}})
+	s2, overlay2 := newService(t, 1, libp2pServiceOpts{libp2pOpts: libp2p.Options{
+		FullNode: true,
+	}})
+
+	testSpec := p2p.ProtocolSpec{
+		Name:    testProtocolName,
+		Version: testProtocolVersion,
+		StreamSpecs: []p2p.StreamSpec{
+			{
+				Name: testStreamName,
+				Handler: func(c context.Context, p p2p.Peer, s p2p.Stream) error {
+					return nil
+				},
+			},
+		},
+	}
+
+	p2p.WithBlocklistStreams(1*time.Minute, testSpec)
+
+	_ = s1.AddProtocol(testSpec)
+
+	s1_underlay := serviceUnderlayAddress(t, s1)
+
+	if _, err := s2.Connect(ctx, s1_underlay); err != nil {
+		t.Fatal(err)
+	}
+
+	expectPeers(t, s2, overlay1)
+	expectPeersEventually(t, s1, overlay2)
+
+	s, err := s2.NewStream(ctx, overlay1, nil, testProtocolName, testProtocolVersion, testStreamName)
+
+	expectStreamReset(t, s, err)
+
+	expectPeersEventually(t, s2)
+	expectPeersEventually(t, s1)
+
+	if _, err := s2.Connect(ctx, s1_underlay); err == nil {
+		t.Fatal("expected error when connecting to blocklisted peer")
+	}
+
+	expectPeersEventually(t, s2)
+	expectPeersEventually(t, s1)
+}
+
+func expectStreamReset(t *testing.T, s io.ReadCloser, err error) {
+	t.Helper()
+
+	// due to the fact that disconnect method is asynchronous
+	// stream reset error should occur either on creation or on first read attempt
+	if err != nil && !errors.Is(err, mux.ErrReset) {
+		t.Fatalf("expected stream reset error, got %v", err)
+	}
+
+	if err == nil {
+		// because read could block without erroring we should also expect timeout
+		wait2sec := make(chan struct{})
+		go func() {
+			time.Sleep(2 * time.Second)
+			wait2sec <- struct{}{}
+		}()
+
+		readErr := make(chan error)
+		go func() {
+			_, err := s.Read(make([]byte, 10))
+			readErr <- err
+		}()
+
+		select {
+		case <-wait2sec:
+			t.Error("expected stream reset error, got timeout reading")
+		case err := <-readErr:
+			if !errors.Is(err, mux.ErrReset) {
+				t.Errorf("expected stream reset error, got %v", err)
+			}
+		}
+	}
 }
 
 func expectZeroAddress(t *testing.T, addrs ...swarm.Address) {
