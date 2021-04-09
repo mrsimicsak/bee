@@ -37,6 +37,8 @@ type Puller struct {
 	intervalMtx sync.Mutex
 	syncer      pullsync.Interface
 
+	fullNode bool
+
 	metrics metrics
 	logger  logging.Logger
 
@@ -52,7 +54,7 @@ type Puller struct {
 	bins uint8 // how many bins do we support
 }
 
-func New(stateStore storage.StateStorer, topology topology.Driver, pullSync pullsync.Interface, logger logging.Logger, o Options) *Puller {
+func New(stateStore storage.StateStorer, topology topology.Driver, pullSync pullsync.Interface, fullNode bool, logger logging.Logger, o Options) *Puller {
 	var (
 		bins uint8 = swarm.MaxBins
 	)
@@ -65,6 +67,7 @@ func New(stateStore storage.StateStorer, topology topology.Driver, pullSync pull
 		topology:   topology,
 		syncer:     pullSync,
 		metrics:    newMetrics(),
+		fullNode:   fullNode,
 		logger:     logger,
 		cursors:    make(map[string][]uint64),
 
@@ -131,36 +134,38 @@ func (p *Puller) manage() {
 				}
 			}
 
-			// EachPeerRev in this case will never return an error, since the content of the callback
-			// never returns an error. In case in the future changes are made to the callback in a
-			// way that it returns an error - the value must be checked.
-			_ = p.topology.EachPeerRev(func(peerAddr swarm.Address, po uint8) (stop, jumpToNext bool, err error) {
-				bp := p.syncPeers[po]
-				if _, ok := bp[peerAddr.String()]; ok {
-					delete(peersDisconnected, peerAddr.String())
-				}
-				if po >= depth {
-					// within depth, sync everything
-					if _, ok := bp[peerAddr.String()]; !ok {
-						// we're not syncing with this peer yet, start doing so
-						bp[peerAddr.String()] = newSyncPeer(peerAddr, p.bins)
-						peerEntry := peer{addr: peerAddr, po: po}
-						peersToSync = append(peersToSync, peerEntry)
-					} else {
-						// already syncing, recalc
-						peerEntry := peer{addr: peerAddr, po: po}
-						peersToRecalc = append(peersToRecalc, peerEntry)
-					}
-				} else {
+			if p.fullNode {
+				// EachPeerRev in this case will never return an error, since the content of the callback
+				// never returns an error. In case in the future changes are made to the callback in a
+				// way that it returns an error - the value must be checked.
+				_ = p.topology.EachPeerRev(func(peerAddr swarm.Address, po uint8) (stop, jumpToNext bool, err error) {
+					bp := p.syncPeers[po]
 					if _, ok := bp[peerAddr.String()]; ok {
-						// already syncing, recalc so that existing streams get cleaned up
-						peerEntry := peer{addr: peerAddr, po: po}
-						peersToRecalc = append(peersToRecalc, peerEntry)
+						delete(peersDisconnected, peerAddr.String())
 					}
-				}
+					if po >= depth {
+						// within depth, sync everything
+						if _, ok := bp[peerAddr.String()]; !ok {
+							// we're not syncing with this peer yet, start doing so
+							bp[peerAddr.String()] = newSyncPeer(peerAddr, p.bins)
+							peerEntry := peer{addr: peerAddr, po: po}
+							peersToSync = append(peersToSync, peerEntry)
+						} else {
+							// already syncing, recalc
+							peerEntry := peer{addr: peerAddr, po: po}
+							peersToRecalc = append(peersToRecalc, peerEntry)
+						}
+					} else {
+						if _, ok := bp[peerAddr.String()]; ok {
+							// already syncing, recalc so that existing streams get cleaned up
+							peerEntry := peer{addr: peerAddr, po: po}
+							peersToRecalc = append(peersToRecalc, peerEntry)
+						}
+					}
 
-				return false, false, nil
-			})
+					return false, false, nil
+				})
+			}
 
 			for _, v := range peersToSync {
 				p.syncPeer(ctx, v.addr, v.po, depth)

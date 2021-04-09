@@ -431,7 +431,7 @@ func NewBee(addr string, swarmAddress swarm.Address, publicKey ecdsa.PublicKey, 
 
 	traversalService := traversal.NewService(ns)
 
-	pushSyncProtocol := pushsync.New(swarmAddress, p2ps, storer, kad, tagService, pssService.TryUnwrap, logger, acc, pricer, signer, tracer)
+	pushSyncProtocol := pushsync.New(swarmAddress, p2ps, storer, kad, tagService, o.FullNodeMode, pssService.TryUnwrap, logger, acc, pricer, signer, tracer)
 
 	// set the pushSyncer in the PSS
 	pssService.SetPushSyncer(pushSyncProtocol)
@@ -450,7 +450,7 @@ func NewBee(addr string, swarmAddress swarm.Address, publicKey ecdsa.PublicKey, 
 	pullSyncProtocol := pullsync.New(p2ps, pullStorage, pssService.TryUnwrap, logger)
 	b.pullSyncCloser = pullSyncProtocol
 
-	pullerService := puller.New(stateStore, kad, pullSyncProtocol, logger, puller.Options{})
+	pullerService := puller.New(stateStore, kad, pullSyncProtocol, o.FullNodeMode, logger, puller.Options{})
 	b.pullerCloser = pullerService
 
 	retrieveProtocolSpec := retrieve.Protocol()
