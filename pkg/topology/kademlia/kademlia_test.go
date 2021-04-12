@@ -754,37 +754,50 @@ func TestClosestPeer(t *testing.T) {
 	for _, tc := range []struct {
 		chunkAddress swarm.Address // chunk address to test
 		expectedPeer int           // points to the index of the connectedPeers slice. -1 means self (baseOverlay)
+		includeSelf  bool
 	}{
 		{
 			chunkAddress: swarm.MustParseHexAddress("7000000000000000000000000000000000000000000000000000000000000000"), // 0111, wants peer 2
 			expectedPeer: 2,
+			includeSelf:  true,
 		},
 		{
 			chunkAddress: swarm.MustParseHexAddress("c000000000000000000000000000000000000000000000000000000000000000"), // 1100, want peer 0
 			expectedPeer: 0,
+			includeSelf:  true,
 		},
 		{
 			chunkAddress: swarm.MustParseHexAddress("e000000000000000000000000000000000000000000000000000000000000000"), // 1110, want peer 0
 			expectedPeer: 0,
+			includeSelf:  true,
 		},
 		{
 			chunkAddress: swarm.MustParseHexAddress("a000000000000000000000000000000000000000000000000000000000000000"), // 1010, want peer 0
 			expectedPeer: 0,
+			includeSelf:  true,
 		},
 		{
 			chunkAddress: swarm.MustParseHexAddress("4000000000000000000000000000000000000000000000000000000000000000"), // 0100, want peer 1
 			expectedPeer: 1,
+			includeSelf:  true,
 		},
 		{
 			chunkAddress: swarm.MustParseHexAddress("5000000000000000000000000000000000000000000000000000000000000000"), // 0101, want peer 1
 			expectedPeer: 1,
+			includeSelf:  true,
 		},
 		{
-			chunkAddress: swarm.MustParseHexAddress("0000001000000000000000000000000000000000000000000000000000000000"), // want self
+			chunkAddress: swarm.MustParseHexAddress("0000001000000000000000000000000000000000000000000000000000000000"), // 1000 want self
 			expectedPeer: -1,
+			includeSelf:  true,
+		},
+		{
+			chunkAddress: swarm.MustParseHexAddress("0000001000000000000000000000000000000000000000000000000000000000"), // 1000 want peer 1
+			expectedPeer: 1,                                                                                             // smallest distance: 2894...
+			includeSelf:  false,
 		},
 	} {
-		peer, err := kad.ClosestPeer(tc.chunkAddress, true)
+		peer, err := kad.ClosestPeer(tc.chunkAddress, tc.includeSelf)
 		if err != nil {
 			if tc.expectedPeer == -1 && !errors.Is(err, topology.ErrWantSelf) {
 				t.Fatalf("wanted %v but got %v", topology.ErrWantSelf, err)

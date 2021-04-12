@@ -867,7 +867,7 @@ func (k *Kad) ClosestPeer(addr swarm.Address, includeSelf bool, skipPeers ...swa
 	var peersToDisconnect []swarm.Address
 	var closest swarm.Address
 
-	if !includeSelf {
+	if includeSelf {
 		closest = k.base
 	}
 
