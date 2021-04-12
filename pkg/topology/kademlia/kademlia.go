@@ -865,14 +865,14 @@ func (k *Kad) ClosestPeer(addr swarm.Address, includeSelf bool, skipPeers ...swa
 
 	peers := k.p2p.Peers()
 	var peersToDisconnect []swarm.Address
-	var closest swarm.Address
+	var closest = swarm.ZeroAddress
 
 	if includeSelf {
 		closest = k.base
 	}
 
 	err := k.connectedPeers.EachBinRev(func(peer swarm.Address, po uint8) (bool, bool, error) {
-		if closest.Len() == 0 {
+		if closest.IsZero() {
 			closest = peer
 		}
 
@@ -909,7 +909,7 @@ func (k *Kad) ClosestPeer(addr swarm.Address, includeSelf bool, skipPeers ...swa
 		return swarm.Address{}, err
 	}
 
-	if closest.Len() == 0 { //no peers
+	if closest.IsZero() { //no peers
 		return swarm.Address{}, topology.ErrNotFound // only for light nodes
 	}
 

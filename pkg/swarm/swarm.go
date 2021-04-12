@@ -103,11 +103,6 @@ func (a Address) ByteString() string {
 	return string(a.Bytes())
 }
 
-// Len returns the number un bytes of the address
-func (a Address) Len() int {
-	return len(a.b)
-}
-
 // UnmarshalJSON sets Address to a value from JSON-encoded representation.
 func (a *Address) UnmarshalJSON(b []byte) (err error) {
 	var s string
