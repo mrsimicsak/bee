@@ -450,7 +450,7 @@ func NewBee(addr string, swarmAddress swarm.Address, publicKey ecdsa.PublicKey, 
 	pullSyncProtocol := pullsync.New(p2ps, pullStorage, pssService.TryUnwrap, logger)
 	b.pullSyncCloser = pullSyncProtocol
 
-	pullerService := puller.New(stateStore, kad, pullSyncProtocol, o.FullNodeMode, logger, puller.Options{})
+	pullerService := puller.New(stateStore, kad, pullSyncProtocol, logger, puller.Options{})
 	b.pullerCloser = pullerService
 
 	retrieveProtocolSpec := retrieve.Protocol()
