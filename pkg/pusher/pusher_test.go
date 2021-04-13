@@ -27,7 +27,7 @@ import (
 )
 
 // no of times to retry to see if we have received response from pushsync
-var noOfRetries = 25
+var noOfRetries = 20
 
 // Wrap the actual storer to intercept the modeSet that the pusher will call when a valid receipt is received
 type Store struct {
