@@ -77,7 +77,15 @@ type Service struct {
 // Info contains the information received from the handshake.
 type Info struct {
 	BzzAddress *bzz.Address
-	Light      bool
+	FullNode   bool
+}
+
+func (i *Info) LightString() string {
+	if i.FullNode {
+		return " (light)"
+	}
+
+	return ""
 }
 
 // New creates a new handshake Service.
@@ -162,7 +170,7 @@ func (s *Service) Handshake(ctx context.Context, stream p2p.Stream, peerMultiadd
 			Signature: bzzAddress.Signature,
 		},
 		NetworkID:      s.networkID,
-		Light:          !s.fullNode,
+		FullNode:       s.fullNode,
 		WelcomeMessage: welcomeMessage,
 	}); err != nil {
 		return nil, fmt.Errorf("write ack message: %w", err)
@@ -175,7 +183,7 @@ func (s *Service) Handshake(ctx context.Context, stream p2p.Stream, peerMultiadd
 
 	return &Info{
 		BzzAddress: remoteBzzAddress,
-		Light:      resp.Ack.Light,
+		FullNode:   resp.Ack.FullNode,
 	}, nil
 }
 
@@ -241,7 +249,7 @@ func (s *Service) Handle(ctx context.Context, stream p2p.Stream, remoteMultiaddr
 				Signature: bzzAddress.Signature,
 			},
 			NetworkID:      s.networkID,
-			Light:          !s.fullNode,
+			FullNode:       s.fullNode,
 			WelcomeMessage: welcomeMessage,
 		},
 	}); err != nil {
@@ -262,7 +270,7 @@ func (s *Service) Handle(ctx context.Context, stream p2p.Stream, remoteMultiaddr
 
 	return &Info{
 		BzzAddress: remoteBzzAddress,
-		Light:      ack.Light,
+		FullNode:   ack.FullNode,
 	}, nil
 }
 

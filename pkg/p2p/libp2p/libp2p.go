@@ -301,7 +301,7 @@ func New(ctx context.Context, signer beecrypto.Signer, networkID uint64, overlay
 			return
 		}
 
-		if !i.Light {
+		if i.FullNode {
 			err = s.addressbook.Put(i.BzzAddress.Overlay, *i.BzzAddress)
 			if err != nil {
 				s.logger.Debugf("handshake: addressbook put error %s: %v", peerID, err)
@@ -324,7 +324,7 @@ func New(ctx context.Context, signer beecrypto.Signer, networkID uint64, overlay
 		s.protocolsmu.RUnlock()
 
 		if s.notifier != nil {
-			if i.Light {
+			if !i.FullNode {
 				s.lightNodes.Connected(ctx, peer)
 				//light node announces explicitly
 				if err := s.notifier.Announce(ctx, peer.Address); err != nil {
@@ -346,15 +346,9 @@ func New(ctx context.Context, signer beecrypto.Signer, networkID uint64, overlay
 			}
 		}
 
-		var lightMode string
-
-		if i.Light {
-			lightMode = " (light)"
-		}
-
 		s.metrics.HandledStreamCount.Inc()
-		s.logger.Debugf("successfully connected to peer %s%s (inbound)", i.BzzAddress.ShortString(), lightMode)
-		s.logger.Infof("successfully connected to peer %s%s (inbound)", i.BzzAddress.Overlay, lightMode)
+		s.logger.Debugf("successfully connected to peer %s%s (inbound)", i.BzzAddress.ShortString(), i.LightString())
+		s.logger.Infof("successfully connected to peer %s%s (inbound)", i.BzzAddress.Overlay, i.LightString())
 	})
 
 	h.Network().SetConnHandler(func(_ network.Conn) {
@@ -571,7 +565,7 @@ func (s *Service) Connect(ctx context.Context, addr ma.Multiaddr) (address *bzz.
 		return nil, fmt.Errorf("connect full close %w", err)
 	}
 
-	if !i.Light {
+	if i.FullNode {
 		err = s.addressbook.Put(i.BzzAddress.Overlay, *i.BzzAddress)
 		if err != nil {
 			_ = s.Disconnect(i.BzzAddress.Overlay)
@@ -592,14 +586,8 @@ func (s *Service) Connect(ctx context.Context, addr ma.Multiaddr) (address *bzz.
 
 	s.metrics.CreatedConnectionCount.Inc()
 
-	var lightMode string
-
-	if i.Light {
-		lightMode = " (light)"
-	}
-
-	s.logger.Debugf("successfully connected to peer %s%s (outbound)", i.BzzAddress.ShortString(), lightMode)
-	s.logger.Infof("successfully connected to peer %s%s (outbound)", i.BzzAddress.Overlay, lightMode)
+	s.logger.Debugf("successfully connected to peer %s%s (outbound)", i.BzzAddress.ShortString(), i.LightString())
+	s.logger.Infof("successfully connected to peer %s%s (outbound)", i.BzzAddress.Overlay, i.LightString())
 	return i.BzzAddress, nil
 }
 
