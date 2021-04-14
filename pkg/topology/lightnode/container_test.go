@@ -17,8 +17,8 @@ func TestContainer(t *testing.T) {
 
 		var empty topology.BinInfo
 
-		if !reflect.DeepEqual(empty, c.BinInfo()) {
-			t.Errorf("expected %v, got %v", empty, c.BinInfo())
+		if !reflect.DeepEqual(empty, c.PeerInfo()) {
+			t.Errorf("expected %v, got %v", empty, c.PeerInfo())
 		}
 	})
 
@@ -28,7 +28,7 @@ func TestContainer(t *testing.T) {
 		c.Connected(context.Background(), p2p.Peer{Address: swarm.NewAddress([]byte("123"))})
 		c.Connected(context.Background(), p2p.Peer{Address: swarm.NewAddress([]byte("456"))})
 
-		peerCount := len(c.BinInfo().ConnectedPeers)
+		peerCount := len(c.PeerInfo().ConnectedPeers)
 
 		if peerCount != 2 {
 			t.Errorf("expected %d connected peer, got %d", 2, peerCount)
@@ -42,12 +42,12 @@ func TestContainer(t *testing.T) {
 		c.Connected(context.Background(), peer)
 		c.Disconnected(peer)
 
-		discPeerCount := len(c.BinInfo().DisconnectedPeers)
+		discPeerCount := len(c.PeerInfo().DisconnectedPeers)
 		if discPeerCount != 1 {
 			t.Errorf("expected %d connected peer, got %d", 1, discPeerCount)
 		}
 
-		connPeerCount := len(c.BinInfo().ConnectedPeers)
+		connPeerCount := len(c.PeerInfo().ConnectedPeers)
 		if connPeerCount != 0 {
 			t.Errorf("expected %d connected peer, got %d", 0, connPeerCount)
 		}

@@ -16,7 +16,7 @@ import (
 func (s *Service) topologyHandler(w http.ResponseWriter, r *http.Request) {
 	params := s.topologyDriver.Snapshot()
 
-	params.LightNodes = s.lightNodes.BinInfo()
+	params.LightNodes = s.lightNodes.PeerInfo()
 
 	b, err := json.Marshal(params)
 	if err != nil {
