@@ -9,6 +9,5 @@ package pseudosettle;
 option go_package = "pb";
 
 message Payment {
-  uint64 Amount = 1;
-  uint64 Timestamp = 2;
+  bytes Amount = 1;
 }

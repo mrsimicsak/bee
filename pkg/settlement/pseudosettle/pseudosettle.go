@@ -8,7 +8,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"math/big"
 	"strings"
 	"time"
@@ -86,16 +85,47 @@ func totalKeyPeer(key []byte, prefix string) (peer swarm.Address, err error) {
 	return swarm.ParseHexAddress(split[1])
 }
 
-func (s *Service) peerAllowance(peer swarm.Address) (limit *big.Int, stamp int64) {
+func (s *Service) peerAllowance(peer swarm.Address) (limit *big.Int, stamp int64, err error) {
+
+	var lastTime int64
+	err = s.store.Get(totalKey(peer, SettlementReceivedTimestampPrefix), &lastTime)
+	if err != nil {
+		if !errors.Is(err, storage.ErrNotFound) {
+			return nil, 0, err
+		}
+		lastTime = 0
+	}
+
 	currentTime := time.Now().Unix()
-	return big.NewInt(10000), currentTime
+	if currentTime == lastTime {
+		err = errors.New("pseudosettle too soon")
+		return nil, 0, err
+	}
+
+	maxAllowance := new(big.Int).Mul(big.NewInt(currentTime-lastTime), refreshRate)
+
+	peerDebt, err := s.accountingAPI.PeerDebt(peer)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if peerDebt.Cmp(maxAllowance) >= 0 {
+		return maxAllowance, currentTime, nil
+	}
+
+	return peerDebt, currentTime, nil
 }
 
 func (s *Service) headler(receivedHeaders p2p.Headers, peerAddress swarm.Address) (returnHeaders p2p.Headers) {
 
-	allowedLimit, timestamp := s.peerAllowance(peerAddress)
+	allowedLimit, timestamp, err := s.peerAllowance(peerAddress)
+	if err != nil {
+		return p2p.Headers{
+			"error": []byte("Error creating response allowance headers"),
+		}
+	}
 
-	returnHeaders, err := MakeAllowanceResponseHeaders(allowedLimit, timestamp)
+	returnHeaders, err = MakeAllowanceResponseHeaders(allowedLimit, timestamp)
 	if err != nil {
 		return p2p.Headers{
 			"error": []byte("Error creating response allowance headers"),
@@ -120,9 +150,6 @@ func (s *Service) handler(ctx context.Context, p p2p.Peer, stream p2p.Stream) (e
 		return fmt.Errorf("read request from peer %v: %w", p.Address, err)
 	}
 
-	s.metrics.TotalReceivedPseudoSettlements.Add(float64(req.Amount))
-	s.logger.Tracef("pseudosettle received payment message from peer %v of %d", p.Address, req.Amount)
-
 	totalReceived, err := s.TotalReceived(p.Address)
 	if err != nil {
 		if !errors.Is(err, settlement.ErrPeerNoSettlements) {
@@ -131,36 +158,35 @@ func (s *Service) handler(ctx context.Context, p p2p.Peer, stream p2p.Stream) (e
 		totalReceived = big.NewInt(0)
 	}
 
-	var lastTime int64
-	err = s.store.Get(totalKey(p.Address, SettlementReceivedTimestampPrefix), &lastTime)
-	if err != nil {
-		if !errors.Is(err, storage.ErrNotFound) {
-			return err
-		}
-		lastTime = 0
-	}
-
-	if req.Timestamp <= uint64(lastTime) {
-		return errors.New("pseudosettle time not increasing")
-	}
-
-	currentTime := time.Now().Unix()
-	if math.Abs(float64(currentTime-int64(req.Timestamp))) > 5 {
-		return errors.New("pseudosettle time difference is too big")
-	}
-
-	maxAllowance := new(big.Int).Mul(big.NewInt(int64(req.Timestamp)-lastTime), refreshRate)
-	if maxAllowance.Cmp(new(big.Int).SetUint64(req.Amount)) < 0 {
-		s.logger.Trace("pseudosettle allowance exceeded")
-		return fmt.Errorf("pseudosettle allowance exceeded. amount was %d, should have been %d max", req.Amount, maxAllowance)
-	}
-
-	err = s.store.Put(totalKey(p.Address, SettlementReceivedPrefix), totalReceived.Add(totalReceived, new(big.Int).SetUint64(req.Amount)))
+	responseHeaders := stream.ResponseHeaders()
+	allowance, timestamp, err := ParseAllowanceResponseHeaders(responseHeaders)
 	if err != nil {
 		return err
 	}
 
-	return s.accountingAPI.NotifyPaymentReceived(p.Address, new(big.Int).SetUint64(req.Amount))
+	receivedPayment := big.NewInt(0).SetBytes(req.Amount)
+
+	if allowance.Cmp(receivedPayment) < 0 {
+		s.logger.Trace("pseudosettle allowance exceeded")
+		return fmt.Errorf("pseudosettle allowance exceeded. amount was %d, should have been %d max", receivedPayment, allowance)
+	}
+
+	receivedPaymentF64, _ := big.NewFloat(0).SetInt(receivedPayment).Float64()
+
+	s.metrics.TotalReceivedPseudoSettlements.Add(receivedPaymentF64)
+	s.logger.Tracef("pseudosettle received payment message from peer %v of %d", p.Address, req.Amount)
+
+	err = s.store.Put(totalKey(p.Address, SettlementReceivedPrefix), totalReceived.Add(totalReceived, receivedPayment))
+	if err != nil {
+		return err
+	}
+
+	err = s.store.Put(totalKey(p.Address, SettlementReceivedTimestampPrefix), timestamp)
+	if err != nil {
+		return
+	}
+
+	return s.accountingAPI.NotifyPaymentReceived(p.Address, receivedPayment)
 }
 
 // Pay initiates a payment to the given peer
@@ -190,12 +216,7 @@ func (s *Service) Pay(ctx context.Context, peer swarm.Address, amount *big.Int) 
 		return
 	}
 
-	maxAllowance := new(big.Int).Mul(big.NewInt(currentTime-lastTime), refreshRate)
-
-	if amount.Cmp(maxAllowance) > 0 {
-		s.logger.Infof("pseudosettle using reduced settlement %d instead of %d", maxAllowance, amount)
-		amount = maxAllowance
-	}
+	// maxAllowance := new(big.Int).Mul(big.NewInt(currentTime-lastTime), refreshRate)
 
 	stream, err := s.streamer.NewStream(ctx, peer, nil, protocolName, protocolVersion, streamName)
 	if err != nil {
@@ -209,11 +230,22 @@ func (s *Service) Pay(ctx context.Context, peer swarm.Address, amount *big.Int) 
 		}
 	}()
 
+	returnedHeaders := stream.Headers()
+
+	allowance, timestamp, err := ParseAllowanceResponseHeaders(returnedHeaders)
+	if err != nil {
+		return
+	}
+
+	if amount.Cmp(allowance) > 0 {
+		s.logger.Infof("pseudosettle using reduced settlement %d instead of %d", allowance, amount)
+		amount = allowance
+	}
+
 	s.logger.Tracef("pseudosettle sending payment message to peer %v of %d", peer, amount)
 	w := protobuf.NewWriter(stream)
 	err = w.WriteMsgWithContext(ctx, &pb.Payment{
-		Amount:    amount.Uint64(),
-		Timestamp: uint64(currentTime),
+		Amount: amount.Bytes(),
 	})
 	if err != nil {
 		return
@@ -231,7 +263,7 @@ func (s *Service) Pay(ctx context.Context, peer swarm.Address, amount *big.Int) 
 		return
 	}
 
-	err = s.store.Put(totalKey(peer, SettlementSentTimestampPrefix), currentTime)
+	err = s.store.Put(totalKey(peer, SettlementSentTimestampPrefix), timestamp)
 	if err != nil {
 		return
 	}
