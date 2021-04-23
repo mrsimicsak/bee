@@ -159,6 +159,7 @@ func (s *Service) handler(ctx context.Context, p p2p.Peer, stream p2p.Stream) (e
 	}
 
 	responseHeaders := stream.ResponseHeaders()
+
 	allowance, timestamp, err := ParseAllowanceResponseHeaders(responseHeaders)
 	if err != nil {
 		return err

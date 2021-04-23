@@ -7,6 +7,7 @@ package pseudosettle_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io/ioutil"
 	"math/big"
 	"testing"
@@ -24,6 +25,7 @@ import (
 type testObserver struct {
 	receivedCalled chan notifyPaymentReceivedCall
 	sentCalled     chan notifyPaymentSentCall
+	peerDebts      map[string]*big.Int
 }
 
 type notifyPaymentReceivedCall struct {
@@ -37,15 +39,20 @@ type notifyPaymentSentCall struct {
 	err    error
 }
 
-func newTestObserver() *testObserver {
+func newTestObserver(debtAmounts map[string]*big.Int) *testObserver {
 	return &testObserver{
 		receivedCalled: make(chan notifyPaymentReceivedCall, 1),
 		sentCalled:     make(chan notifyPaymentSentCall, 1),
+		peerDebts:      debtAmounts,
 	}
 }
 
 func (t *testObserver) PeerDebt(peer swarm.Address) (*big.Int, error) {
-	return big.NewInt(210), nil
+	if debt, ok := t.peerDebts[peer.String()]; ok {
+		return debt, nil
+	}
+
+	return nil, errors.New("Peer not listed")
 }
 
 func (t *testObserver) NotifyPaymentReceived(peer swarm.Address, amount *big.Int) error {
@@ -69,11 +76,13 @@ func TestPayment(t *testing.T) {
 	storeRecipient := mock.NewStateStore()
 	defer storeRecipient.Close()
 
-	observer := newTestObserver()
+	peerID := swarm.MustParseHexAddress("9ee7add7")
+
+	debt := int64(10000)
+
+	observer := newTestObserver(map[string]*big.Int{peerID.String(): big.NewInt(debt)})
 	recipient := pseudosettle.New(nil, logger, storeRecipient, observer)
 	recipient.SetAccountingAPI(observer)
-
-	peerID := swarm.MustParseHexAddress("9ee7add7")
 
 	recorder := streamtest.New(
 		streamtest.WithProtocols(recipient.Protocol()),
@@ -83,11 +92,11 @@ func TestPayment(t *testing.T) {
 	storePayer := mock.NewStateStore()
 	defer storePayer.Close()
 
-	observer2 := newTestObserver()
+	observer2 := newTestObserver(map[string]*big.Int{})
 	payer := pseudosettle.New(recorder, logger, storePayer, observer2)
 	payer.SetAccountingAPI(observer2)
 
-	amount := big.NewInt(10000)
+	amount := big.NewInt(debt)
 
 	payer.Pay(context.Background(), peerID, amount)
 
@@ -119,7 +128,7 @@ func TestPayment(t *testing.T) {
 	}
 
 	sentAmount := big.NewInt(0).SetBytes(messages[0].(*pb.Payment).Amount)
-	if sentAmount != amount {
+	if sentAmount.Cmp(amount) != 0 {
 		t.Fatalf("got message with amount %v, want %v", sentAmount, amount)
 	}
 
