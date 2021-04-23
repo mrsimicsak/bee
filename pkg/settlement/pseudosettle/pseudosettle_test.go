@@ -45,7 +45,7 @@ func newTestObserver() *testObserver {
 }
 
 func (t *testObserver) PeerDebt(peer swarm.Address) (*big.Int, error) {
-	return nil, nil
+	return big.NewInt(210), nil
 }
 
 func (t *testObserver) NotifyPaymentReceived(peer swarm.Address, amount *big.Int) error {
@@ -71,6 +71,7 @@ func TestPayment(t *testing.T) {
 
 	observer := newTestObserver()
 	recipient := pseudosettle.New(nil, logger, storeRecipient, observer)
+	recipient.SetAccountingAPI(observer)
 
 	peerID := swarm.MustParseHexAddress("9ee7add7")
 
@@ -117,8 +118,8 @@ func TestPayment(t *testing.T) {
 		t.Fatalf("got %v messages, want %v", len(messages), 1)
 	}
 
-	sentAmount := messages[0].(*pb.Payment).Amount
-	if sentAmount != amount.Uint64() {
+	sentAmount := big.NewInt(0).SetBytes(messages[0].(*pb.Payment).Amount)
+	if sentAmount != amount {
 		t.Fatalf("got message with amount %v, want %v", sentAmount, amount)
 	}
 
@@ -158,7 +159,7 @@ func TestPayment(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if totalSent.Cmp(new(big.Int).SetUint64(sentAmount)) != 0 {
+	if totalSent.Cmp(sentAmount) != 0 {
 		t.Fatalf("stored wrong totalSent. got %d, want %d", totalSent, sentAmount)
 	}
 
@@ -167,7 +168,7 @@ func TestPayment(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if totalReceived.Cmp(new(big.Int).SetUint64(sentAmount)) != 0 {
+	if totalReceived.Cmp(sentAmount) != 0 {
 		t.Fatalf("stored wrong totalReceived. got %d, want %d", totalReceived, sentAmount)
 	}
 }
