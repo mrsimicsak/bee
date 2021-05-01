@@ -30,7 +30,9 @@ import (
 	"github.com/ethersphere/bee/pkg/swarm"
 	"github.com/ethersphere/bee/pkg/tags"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/syndtr/goleveldb/leveldb"
+	
+
+	"github.com/dgraph-io/badger/v3"
 )
 
 var _ storage.Storer = &DB{}
