@@ -25,6 +25,8 @@ type metrics struct {
 	IteratorCounter       prometheus.Counter
 	WriteBatchCounter     prometheus.Counter
 	WriteBatchFailCounter prometheus.Counter
+
+	ViewErrCounter prometheus.Counter
 }
 
 func newMetrics() metrics {

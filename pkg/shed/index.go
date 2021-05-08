@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/dgraph-io/badger/v3"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 )
@@ -165,27 +166,30 @@ func (f Index) Get(keyFields Item) (out Item, err error) {
 // contain data from the index values. No new slice is allocated.
 // This function uses a single leveldb snapshot.
 func (f Index) Fill(items []Item) (err error) {
-	snapshot, err := f.db.ldb.GetSnapshot()
-	if err != nil {
-		return fmt.Errorf("get snapshot: %w", err)
-	}
-	defer snapshot.Release()
 
-	for i, item := range items {
-		key, err := f.encodeKeyFunc(item)
-		if err != nil {
-			return fmt.Errorf("encode key: %w", err)
+	return f.db.bdb.View(func(txn *badger.Txn) error {
+		for i, item := range items {
+			key, err := f.encodeKeyFunc(item)
+			if err != nil {
+				return fmt.Errorf("encode key: %w", err)
+			}
+			result, err := txn.Get(key)
+
+			if err != nil {
+				return fmt.Errorf("get value: %w", err)
+			}
+
+			value, err := result.ValueCopy(nil)
+			if err != nil {
+				v, err := f.decodeValueFunc(item, value)
+				if err != nil {
+					return fmt.Errorf("decode value: %w", err)
+				}
+				items[i] = v.Merge(item)
+			}
 		}
-		value, err := snapshot.Get(key, nil)
-		if err != nil {
-			return fmt.Errorf("get value: %w", err)
-		}
-		v, err := f.decodeValueFunc(item, value)
-		if err != nil {
-			return fmt.Errorf("decode value: %w", err)
-		}
-		items[i] = v.Merge(item)
-	}
+	})
+
 	return nil
 }
 
@@ -200,28 +204,6 @@ func (f Index) Has(keyFields Item) (bool, error) {
 	return f.db.Has(key)
 }
 
-// HasMulti accepts multiple multiple key fields represented as Item to check if
-// there this Item's encoded key is stored in the index for each of them.
-func (f Index) HasMulti(items ...Item) ([]bool, error) {
-	have := make([]bool, len(items))
-	snapshot, err := f.db.ldb.GetSnapshot()
-	if err != nil {
-		return nil, fmt.Errorf("get snapshot: %w", err)
-	}
-	defer snapshot.Release()
-	for i, keyFields := range items {
-		key, err := f.encodeKeyFunc(keyFields)
-		if err != nil {
-			return nil, fmt.Errorf("encode key for address %x: %w", keyFields.Address, err)
-		}
-		have[i], err = snapshot.Has(key, nil)
-		if err != nil {
-			return nil, fmt.Errorf("has key for address %x: %w", keyFields.Address, err)
-		}
-	}
-	return have, nil
-}
-
 // Put accepts Item to encode information from it
 // and save it to the database.
 func (f Index) Put(i Item) (err error) {
@@ -229,11 +211,11 @@ func (f Index) Put(i Item) (err error) {
 	if err != nil {
 		return fmt.Errorf("encode key: %w", err)
 	}
-	value, err := f.encodeValueFunc(i)
+	result, err := f.encodeValueFunc(i)
 	if err != nil {
 		return fmt.Errorf("encode value: %w", err)
 	}
-	return f.db.Put(key, value)
+	return f.db.Put(key, result)
 }
 
 // PutInBatch is the same as Put method, but it just
@@ -244,11 +226,11 @@ func (f Index) PutInBatch(batch *leveldb.Batch, i Item) (err error) {
 	if err != nil {
 		return fmt.Errorf("encode key: %w", err)
 	}
-	value, err := f.encodeValueFunc(i)
+	result, err := f.encodeValueFunc(i)
 	if err != nil {
 		return fmt.Errorf("encode value: %w", err)
 	}
-	batch.Put(key, value)
+	batch.Put(key, result)
 	return nil
 }
 
@@ -311,82 +293,45 @@ func (f Index) Iterate(fn IndexIterFunc, options *IterateOptions) (err error) {
 		}
 	}
 
-	it := f.db.NewIterator()
-	defer it.Release()
+	var opt = badger.DefaultIteratorOptions
 
-	var ok bool
+	opt.Reverse = options.Reverse
+	opt.Prefix = options.Prefix
 
-	// move the cursor to the start key
-	ok = it.Seek(startKey)
+	err = f.db.bdb.View(func(txn *badger.Txn) error {
+		it := txn.NewIterator(opt)
 
-	if !options.Reverse {
-		if !ok {
-			// stop iterator if seek has failed
-			return it.Error()
-		}
-	} else {
-		// reverse seeker
-		if options.StartFrom != nil {
-			if !ok {
-				return it.Error()
-			}
-		} else {
-			// find last key for this index (and prefix)
+		// move the cursor to the start key
+		it.Seek(startKey)
 
-			// move cursor to last key
-			ok = it.Last()
-			if !ok {
-				return it.Error()
-			}
-
-			if lastKeyHasPrefix := bytes.HasPrefix(it.Key(), prefix); !lastKeyHasPrefix {
-				// increment last prefix byte (that is not 0xFF) to try to find last key
-				incrementedPrefix := bytesIncrement(prefix)
-				if incrementedPrefix == nil {
-					return fmt.Errorf("index iterator invalid prefix: %v -> %v", prefix, string(prefix))
-				}
-
-				// should find first key after prefix (same or different index)
-				ok = it.Seek(incrementedPrefix)
-				if !ok {
-					return it.Error()
-				}
-
-				// previous key should have proper prefix
-				ok = it.Prev()
-				if !ok {
-					return it.Error()
-				}
+		if options.SkipStartFromItem && bytes.Equal(startKey, it.Item().Key()) {
+			// skip the start from Item if it is the first key
+			// and it is explicitly configured to skip it
+			it.Next()
+			if !it.Valid() {
+				return
 			}
 		}
-	}
-
-	itSeekerFn := it.Next
-	if options.Reverse {
-		itSeekerFn = it.Prev
-	}
-	if options.SkipStartFromItem && bytes.Equal(startKey, it.Key()) {
-		// skip the start from Item if it is the first key
-		// and it is explicitly configured to skip it
-		ok = itSeekerFn()
-	}
-	for ; ok; ok = itSeekerFn() {
-		item, err := f.itemFromIterator(it, prefix)
-		if err != nil {
-			if errors.Is(err, leveldb.ErrNotFound) {
+		for ; it.Valid(); it.Next() {
+			item, err := f.itemFromIterator(it, prefix)
+			if err != nil {
+				if errors.Is(err, leveldb.ErrNotFound) {
+					break
+				}
+				return fmt.Errorf("get item from iterator: %w", err)
+			}
+			stop, err := fn(item)
+			if err != nil {
+				return fmt.Errorf("index iterator function: %w", err)
+			}
+			if stop {
 				break
 			}
-			return fmt.Errorf("get item from iterator: %w", err)
 		}
-		stop, err := fn(item)
-		if err != nil {
-			return fmt.Errorf("index iterator function: %w", err)
-		}
-		if stop {
-			break
-		}
-	}
-	return it.Error()
+		return it.Error()
+
+	})
+
 }
 
 // bytesIncrement increments the last byte that is not 0xFF, and returns

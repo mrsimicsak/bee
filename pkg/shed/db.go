@@ -25,8 +25,7 @@ package shed
 import (
 	"errors"
 
-	badger "github.com/dgraph-io/badger"
-	"github.com/syndtr/goleveldb/leveldb/iterator"
+	badger "github.com/dgraph-io/badger/v3"
 )
 
 var (
@@ -67,7 +66,7 @@ func NewDB(path string, o *Options) (db *DB, err error) {
 	}
 	var bdb *badger.DB
 
-	if path = "" {
+	if path == "" {
 		bdb, err = badger.Open(badger.DefaultOptions("").WithInMemory(true))
 	} else {
 		bdb, err = badger.Open(badger.DefaultOptions(path))
@@ -104,7 +103,11 @@ func NewDB(path string, o *Options) (db *DB, err error) {
 
 // Put wraps LevelDB Put method to increment metrics counter.
 func (db *DB) Put(key, value []byte) (err error) {
-	err = db.bdb.Put(key, value, nil)
+
+	err = db.bdb.Update(func(txn *badger.Txn) error {
+		return txn.Set(key, value)
+	})
+
 	if err != nil {
 		db.metrics.PutFailCounter.Inc()
 		return err
@@ -116,36 +119,61 @@ func (db *DB) Put(key, value []byte) (err error) {
 // Get wraps LevelDB Get method to increment metrics counter.
 func (db *DB) Get(key []byte) (value []byte, err error) {
 
-	var (
-		value,
-		getErr
-	)
+	err = db.bdb.View(func(txn *badger.Txn) error {
+		item, err := txn.Get(key)
 
-	viewErr := db.bdb.View(func(txn *badger.Txn) error {
-		value, getErr := txn.Get(key)
-		return nil
-	})
-	if viewErr != nil {
-		db.metrics.ViewErrCounter.Inc()
-		return nil, err
-		
-	} else {
-		if getErr != nil {
+		if err != nil {
+
 			if errors.Is(err, badger.ErrKeyNotFound) {
 				db.metrics.GetNotFoundCounter.Inc()
 			} else {
 				db.metrics.GetFailCounter.Inc()
 			}
-			return nil, err
+
+			return err
+		} else {
+
+			value, err = item.ValueCopy(nil)
+
+			if err != nil {
+
+				db.metrics.GetCounter.Inc()
+
+				return nil
+
+			} else {
+				return err
+			}
+
 		}
+	})
+
+	if err != nil {
+		return nil, err
+	} else {
+		return value, nil
 	}
-	db.metrics.GetCounter.Inc()
-	return value, nil
+
 }
 
 // Has wraps LevelDB Has method to increment metrics counter.
 func (db *DB) Has(key []byte) (yes bool, err error) {
-	yes, err = db.bdb.Has(key, nil)
+
+	var opt = badger.DefaultIteratorOptions
+
+	opt.PrefetchValues = false
+
+	err = db.bdb.View(func(txn *badger.Txn) error {
+		it := txn.NewIterator(opt)
+		defer it.Close()
+
+		it.Seek(key)
+		yes = it.ValidForPrefix(key)
+
+		return nil
+
+	})
+
 	if err != nil {
 		db.metrics.HasFailCounter.Inc()
 		return false, err
@@ -156,7 +184,11 @@ func (db *DB) Has(key []byte) (yes bool, err error) {
 
 // Delete wraps LevelDB Delete method to increment metrics counter.
 func (db *DB) Delete(key []byte) (err error) {
-	err = db.bdb.Delete(key, nil)
+
+	err = db.bdb.Update(func(txn *badger.Txn) error {
+		return txn.Delete(key)
+	})
+
 	if err != nil {
 		db.metrics.DeleteFailCounter.Inc()
 		return err
@@ -165,15 +197,9 @@ func (db *DB) Delete(key []byte) (err error) {
 	return nil
 }
 
-// NewIterator wraps LevelDB NewIterator method to increment metrics counter.
-func (db *DB) NewIterator() iterator.Iterator {
-	db.metrics.IteratorCounter.Inc()
-	return db.bdb.NewIterator(nil, nil)
-}
-
 // WriteBatch wraps LevelDB Write method to increment metrics counter.
-func (db *DB) WriteBatch(batch *badger.Batch) (err error) {
-	err = db.bdb.Write(batch, nil)
+func (db *DB) WriteBatch(batch *badger.WriteBatch) (err error) {
+	err = batch.Flush()
 	if err != nil {
 		db.metrics.WriteBatchFailCounter.Inc()
 		return err
