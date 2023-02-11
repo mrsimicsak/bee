@@ -138,9 +138,9 @@ func newCommand(opts ...option) (c *command, err error) {
 		return nil, err
 	}
 
-	if err := c.initStartDevCmd(); err != nil {
-		return nil, err
-	}
+	// if err := c.initStartDevCmd(); err != nil {
+	// 	return nil, err
+	// }
 
 	if err := c.initHasherCmd(); err != nil {
 		return nil, err
@@ -150,9 +150,9 @@ func newCommand(opts ...option) (c *command, err error) {
 		return nil, err
 	}
 
-	if err := c.initDeployCmd(); err != nil {
-		return nil, err
-	}
+	// if err := c.initDeployCmd(); err != nil {
+	// 	return nil, err
+	// }
 
 	c.initVersionCmd()
 	c.initDBCmd()

@@ -225,20 +225,20 @@ type ExtraOptions struct {
 	IndexDebugger    StorageIndexDebugger
 }
 
-func New(publicKey, pssPublicKey ecdsa.PublicKey, ethereumAddress common.Address, logger log.Logger, transaction transaction.Service, batchStore postage.Storer, beeMode BeeNodeMode, chequebookEnabled bool, swapEnabled bool, chainBackend transaction.Backend, cors []string) *Service {
+func New(logger log.Logger, transaction transaction.Service, chainBackend transaction.Backend, cors []string) *Service {
 	s := new(Service)
 
 	s.CORSAllowedOrigins = cors
-	s.beeMode = beeMode
+	// s.beeMode = beeMode
 	s.logger = logger.WithName(loggerName).Register()
 	s.loggerV1 = s.logger.V(1).Register()
-	s.chequebookEnabled = chequebookEnabled
-	s.swapEnabled = swapEnabled
-	s.publicKey = publicKey
-	s.pssPublicKey = pssPublicKey
-	s.ethereumAddress = ethereumAddress
+	// s.chequebookEnabled = chequebookEnabled
+	// s.swapEnabled = swapEnabled
+	// s.publicKey = publicKey
+	// s.pssPublicKey = pssPublicKey
+	// s.ethereumAddress = ethereumAddress
 	s.transaction = transaction
-	s.batchStore = batchStore
+	// s.batchStore = batchStore
 	s.chainBackend = chainBackend
 	s.metricsRegistry = newDebugMetrics()
 	s.preMapHooks = map[string]func(v string) (string, error){
@@ -264,10 +264,10 @@ func New(publicKey, pssPublicKey ecdsa.PublicKey, ethereumAddress common.Address
 }
 
 // Configure will create a and initialize a new API service.
-func (s *Service) Configure(signer crypto.Signer, auth auth.Authenticator, tracer *tracing.Tracer, o Options, e ExtraOptions, chainID int64, erc20 erc20.Service) <-chan *pusher.Op {
+func (s *Service) Configure(auth auth.Authenticator, tracer *tracing.Tracer, o Options, e ExtraOptions, chainID int64, erc20 erc20.Service) <-chan *pusher.Op {
 	s.auth = auth
 	s.chunkPushC = make(chan *pusher.Op)
-	s.signer = signer
+	// s.signer = signer
 	s.Options = o
 	s.tracer = tracer
 	s.metrics = newMetrics()

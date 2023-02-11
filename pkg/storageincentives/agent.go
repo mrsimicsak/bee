@@ -6,17 +6,12 @@ package storageincentives
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
-	"fmt"
-	"io"
-	"math"
 	"math/big"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethersphere/bee/pkg/crypto"
 	"github.com/ethersphere/bee/pkg/log"
 	"github.com/ethersphere/bee/pkg/postage"
 	"github.com/ethersphere/bee/pkg/postage/postagecontract"
@@ -57,28 +52,28 @@ type Agent struct {
 }
 
 func New(
-	overlay swarm.Address,
+	// overlay swarm.Address,
 	backend ChainBackend,
 	logger log.Logger,
-	monitor Monitor,
-	contract redistribution.Contract,
-	batchExpirer postagecontract.PostageBatchExpirer,
-	reserve postage.Storer,
-	sampler storage.Sampler,
+	// monitor Monitor,
+	// contract redistribution.Contract,
+	// batchExpirer postagecontract.PostageBatchExpirer,
+	// reserve postage.Storer,
+	// sampler storage.Sampler,
 	blockTime time.Duration, blocksPerRound, blocksPerPhase uint64) *Agent {
 
 	s := &Agent{
-		overlay:        overlay,
-		metrics:        newMetrics(),
-		backend:        backend,
-		logger:         logger.WithName(loggerName).Register(),
-		contract:       contract,
-		batchExpirer:   batchExpirer,
-		reserve:        reserve,
-		monitor:        monitor,
+		// overlay:        overlay,
+		metrics: newMetrics(),
+		backend: backend,
+		logger:  logger.WithName(loggerName).Register(),
+		// contract: contract,
+		// batchExpirer:   batchExpirer,
+		// reserve:        reserve,
+		// monitor:        monitor,
 		blocksPerRound: blocksPerRound,
-		sampler:        sampler,
-		quit:           make(chan struct{}),
+		// sampler:        sampler,
+		quit: make(chan struct{}),
 	}
 
 	s.wg.Add(1)
@@ -98,15 +93,15 @@ func (a *Agent) start(blockTime time.Duration, blocksPerRound, blocksPerPhase ui
 	defer a.wg.Done()
 
 	var (
-		mtx            sync.Mutex
-		sampleRound    uint64 = math.MaxUint64
-		commitRound    uint64 = math.MaxUint64
-		revealRound    uint64 = math.MaxUint64
-		round          uint64
-		reserveSample  []byte
-		obfuscationKey []byte
-		storageRadius  uint8
-		phaseEvents    = newEvents()
+		mtx sync.Mutex
+		// sampleRound uint64 = math.MaxUint64
+		// commitRound    uint64 = math.MaxUint64
+		// revealRound    uint64 = math.MaxUint64
+		round uint64
+		// reserveSample []byte
+		// obfuscationKey []byte
+		// storageRadius uint8
+		phaseEvents = newEvents()
 	)
 
 	// cancel all possible running phases
@@ -115,25 +110,25 @@ func (a *Agent) start(blockTime time.Duration, blocksPerRound, blocksPerPhase ui
 	commitF := func(ctx context.Context) {
 		phaseEvents.Cancel(claim)
 
-		mtx.Lock()
-		round := round
-		sampleRound := sampleRound
-		storageRadius := storageRadius
-		reserveSample := reserveSample
-		mtx.Unlock()
+		// mtx.Lock()
+		// round := round
+		// sampleRound := sampleRound
+		// storageRadius := storageRadius
+		// reserveSample := reserveSample
+		// mtx.Unlock()
 
-		if round-1 == sampleRound { // the sample has to come from previous round to be able to commit it
-			obf, err := a.commit(ctx, storageRadius, reserveSample, round)
-			if err != nil {
-				a.logger.Error(err, "commit")
-			} else {
-				mtx.Lock()
-				obfuscationKey = obf
-				commitRound = round
-				mtx.Unlock()
-				a.logger.Debug("committed the reserve sample and radius")
-			}
-		}
+		// if round-1 == sampleRound { // the sample has to come from previous round to be able to commit it
+		// 	obf, err := a.commit(ctx, storageRadius, reserveSample, round)
+		// 	if err != nil {
+		// 		a.logger.Error(err, "commit")
+		// 	} else {
+		// 		mtx.Lock()
+		// 		obfuscationKey = obf
+		// 		commitRound = round
+		// 		mtx.Unlock()
+		// 		a.logger.Debug("committed the reserve sample and radius")
+		// 	}
+		// }
 	}
 
 	// when the sample finishes, if we are in the commit phase, run commit
@@ -155,64 +150,64 @@ func (a *Agent) start(blockTime time.Duration, blocksPerRound, blocksPerPhase ui
 		// cancel previous executions of the commit and sample phases
 		phaseEvents.Cancel(commit, sample, sampleEnd)
 
-		mtx.Lock()
-		round := round
-		commitRound := commitRound
-		storageRadius := storageRadius
-		reserveSample := reserveSample
-		obfuscationKey := obfuscationKey
-		mtx.Unlock()
+		// mtx.Lock()
+		// round := round
+		// commitRound := commitRound
+		// storageRadius := storageRadius
+		// reserveSample := reserveSample
+		// obfuscationKey := obfuscationKey
+		// mtx.Unlock()
 
-		if round == commitRound { // reveal requires the obfuscationKey from the same round
-			err := a.reveal(ctx, storageRadius, reserveSample, obfuscationKey)
-			if err != nil {
-				a.logger.Error(err, "reveal")
-			} else {
-				mtx.Lock()
-				revealRound = round
-				mtx.Unlock()
-				a.logger.Debug("revealed the sample with the obfuscation key")
-			}
-		}
+		// if round == commitRound { // reveal requires the obfuscationKey from the same round
+		// 	err := a.reveal(ctx, storageRadius, reserveSample, obfuscationKey)
+		// 	if err != nil {
+		// 		a.logger.Error(err, "reveal")
+		// 	} else {
+		// 		mtx.Lock()
+		// 		revealRound = round
+		// 		mtx.Unlock()
+		// 		a.logger.Debug("revealed the sample with the obfuscation key")
+		// 	}
+		// }
 	})
 
 	phaseEvents.On(claim, func(ctx context.Context, _ PhaseType) {
 
 		phaseEvents.Cancel(reveal)
 
-		mtx.Lock()
-		round := round
-		revealRound := revealRound
-		mtx.Unlock()
+		// mtx.Lock()
+		// round := round
+		// revealRound := revealRound
+		// mtx.Unlock()
 
-		if round == revealRound { // to claim, previous reveal must've happened in the same round
-			err := a.claim(ctx)
-			if err != nil {
-				a.logger.Error(err, "claim")
-			}
-		}
+		// if round == revealRound { // to claim, previous reveal must've happened in the same round
+		// 	err := a.claim(ctx)
+		// 	if err != nil {
+		// 		a.logger.Error(err, "claim")
+		// 	}
+		// }
 	})
 
-	phaseEvents.On(sample, func(ctx context.Context, _ PhaseType) {
+	// phaseEvents.On(sample, func(ctx context.Context, _ PhaseType) {
 
-		mtx.Lock()
-		round := round
-		mtx.Unlock()
+	// 	mtx.Lock()
+	// 	round := round
+	// 	mtx.Unlock()
 
-		sr, smpl, err := a.play(ctx)
-		if err != nil {
-			a.logger.Error(err, "make sample")
-		} else if smpl != nil {
-			mtx.Lock()
-			sampleRound = round
-			reserveSample = smpl
-			storageRadius = sr
-			a.logger.Info("produced reserve sample", "round", round)
-			mtx.Unlock()
-		}
+	// 	sr, smpl, err := a.play(ctx)
+	// 	if err != nil {
+	// 		a.logger.Error(err, "make sample")
+	// 	} else if smpl != nil {
+	// 		mtx.Lock()
+	// 		sampleRound = round
+	// 		reserveSample = smpl
+	// 		storageRadius = sr
+	// 		a.logger.Info("produced reserve sample", "round", round)
+	// 		mtx.Unlock()
+	// 	}
 
-		phaseEvents.Publish(sampleEnd)
-	})
+	// 	phaseEvents.Publish(sampleEnd)
+	// })
 
 	var (
 		prevPhase    PhaseType = -1
@@ -273,85 +268,85 @@ func (a *Agent) start(blockTime time.Duration, blocksPerRound, blocksPerPhase ui
 	}
 }
 
-func (a *Agent) reveal(ctx context.Context, storageRadius uint8, sample, obfuscationKey []byte) error {
-	a.metrics.RevealPhase.Inc()
-	err := a.contract.Reveal(ctx, storageRadius, sample, obfuscationKey)
-	if err != nil {
-		a.metrics.ErrReveal.Inc()
-	}
-	return err
-}
+// func (a *Agent) reveal(ctx context.Context, storageRadius uint8, sample, obfuscationKey []byte) error {
+// 	a.metrics.RevealPhase.Inc()
+// 	err := a.contract.Reveal(ctx, storageRadius, sample, obfuscationKey)
+// 	if err != nil {
+// 		a.metrics.ErrReveal.Inc()
+// 	}
+// 	return err
+// }
 
-func (a *Agent) claim(ctx context.Context) error {
-	a.metrics.ClaimPhase.Inc()
-	// event claimPhase was processed
+// func (a *Agent) claim(ctx context.Context) error {
+// 	a.metrics.ClaimPhase.Inc()
+// 	// event claimPhase was processed
 
-	err := a.batchExpirer.ExpireBatches(ctx)
-	if err != nil {
-		return err
-	}
+// 	err := a.batchExpirer.ExpireBatches(ctx)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	isWinner, err := a.contract.IsWinner(ctx)
-	if err != nil {
-		a.metrics.ErrWinner.Inc()
-		return err
-	}
+// 	isWinner, err := a.contract.IsWinner(ctx)
+// 	if err != nil {
+// 		a.metrics.ErrWinner.Inc()
+// 		return err
+// 	}
 
-	if isWinner {
-		a.metrics.Winner.Inc()
-		err = a.contract.Claim(ctx)
-		if err != nil {
-			a.metrics.ErrClaim.Inc()
-			return fmt.Errorf("error claiming win: %w", err)
-		} else {
-			a.logger.Info("claimed win")
-		}
-	} else {
-		a.logger.Info("claim made, lost round")
-	}
+// 	if isWinner {
+// 		a.metrics.Winner.Inc()
+// 		err = a.contract.Claim(ctx)
+// 		if err != nil {
+// 			a.metrics.ErrClaim.Inc()
+// 			return fmt.Errorf("error claiming win: %w", err)
+// 		} else {
+// 			a.logger.Info("claimed win")
+// 		}
+// 	} else {
+// 		a.logger.Info("claim made, lost round")
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
-func (a *Agent) play(ctx context.Context) (uint8, []byte, error) {
+// func (a *Agent) play(ctx context.Context) (uint8, []byte, error) {
 
-	// get depthmonitor fully synced indicator
-	ready := a.monitor.IsFullySynced()
-	if !ready {
-		return 0, nil, nil
-	}
+// 	// get depthmonitor fully synced indicator
+// 	ready := a.monitor.IsFullySynced()
+// 	if !ready {
+// 		return 0, nil, nil
+// 	}
 
-	storageRadius := a.reserve.GetReserveState().StorageRadius
+// 	storageRadius := a.reserve.GetReserveState().StorageRadius
 
-	isPlaying, err := a.contract.IsPlaying(ctx, storageRadius)
-	if !isPlaying || err != nil {
-		a.metrics.ErrCheckIsPlaying.Inc()
-		return 0, nil, err
-	}
+// 	isPlaying, err := a.contract.IsPlaying(ctx, storageRadius)
+// 	if !isPlaying || err != nil {
+// 		a.metrics.ErrCheckIsPlaying.Inc()
+// 		return 0, nil, err
+// 	}
 
-	a.logger.Info("neighbourhood chosen")
-	a.metrics.NeighborhoodSelected.Inc()
+// 	a.logger.Info("neighbourhood chosen")
+// 	a.metrics.NeighborhoodSelected.Inc()
 
-	salt, err := a.contract.ReserveSalt(ctx)
-	if err != nil {
-		return 0, nil, err
-	}
+// 	salt, err := a.contract.ReserveSalt(ctx)
+// 	if err != nil {
+// 		return 0, nil, err
+// 	}
 
-	t := time.Now()
+// 	t := time.Now()
 
-	timeLimiter, err := a.getPreviousRoundTime(ctx)
-	if err != nil {
-		return 0, nil, err
-	}
+// 	timeLimiter, err := a.getPreviousRoundTime(ctx)
+// 	if err != nil {
+// 		return 0, nil, err
+// 	}
 
-	sample, err := a.sampler.ReserveSample(ctx, salt, storageRadius, uint64(timeLimiter))
-	if err != nil {
-		return 0, nil, err
-	}
-	a.metrics.SampleDuration.Set(time.Since(t).Seconds())
+// 	sample, err := a.sampler.ReserveSample(ctx, salt, storageRadius, uint64(timeLimiter))
+// 	if err != nil {
+// 		return 0, nil, err
+// 	}
+// 	a.metrics.SampleDuration.Set(time.Since(t).Seconds())
 
-	return storageRadius, sample.Hash.Bytes(), nil
-}
+// 	return storageRadius, sample.Hash.Bytes(), nil
+// }
 
 func (a *Agent) getPreviousRoundTime(ctx context.Context) (time.Duration, error) {
 
@@ -374,27 +369,27 @@ func (a *Agent) getPreviousRoundTime(ctx context.Context) (time.Duration, error)
 	return time.Duration(timeLimiterBlock.Time) * time.Second / time.Nanosecond, nil
 }
 
-func (a *Agent) commit(ctx context.Context, storageRadius uint8, sample []byte, round uint64) ([]byte, error) {
-	a.metrics.CommitPhase.Inc()
+// func (a *Agent) commit(ctx context.Context, storageRadius uint8, sample []byte, round uint64) ([]byte, error) {
+// 	a.metrics.CommitPhase.Inc()
 
-	key := make([]byte, swarm.HashSize)
-	if _, err := io.ReadFull(rand.Reader, key); err != nil {
-		return nil, err
-	}
+// 	key := make([]byte, swarm.HashSize)
+// 	if _, err := io.ReadFull(rand.Reader, key); err != nil {
+// 		return nil, err
+// 	}
 
-	obfuscatedHash, err := a.wrapCommit(storageRadius, sample, key)
-	if err != nil {
-		return nil, err
-	}
+// 	obfuscatedHash, err := a.wrapCommit(storageRadius, sample, key)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	err = a.contract.Commit(ctx, obfuscatedHash, big.NewInt(int64(round)))
-	if err != nil {
-		a.metrics.ErrCommit.Inc()
-		return nil, err
-	}
+// 	err = a.contract.Commit(ctx, obfuscatedHash, big.NewInt(int64(round)))
+// 	if err != nil {
+// 		a.metrics.ErrCommit.Inc()
+// 		return nil, err
+// 	}
 
-	return key, nil
-}
+// 	return key, nil
+// }
 
 func (a *Agent) Close() error {
 	close(a.quit)
@@ -413,13 +408,13 @@ func (a *Agent) Close() error {
 	}
 }
 
-func (s *Agent) wrapCommit(storageRadius uint8, sample []byte, key []byte) ([]byte, error) {
+// func (s *Agent) wrapCommit(storageRadius uint8, sample []byte, key []byte) ([]byte, error) {
 
-	storageRadiusByte := []byte{storageRadius}
+// 	storageRadiusByte := []byte{storageRadius}
 
-	data := append(s.overlay.Bytes(), storageRadiusByte...)
-	data = append(data, sample...)
-	data = append(data, key...)
+// 	data := append(s.overlay.Bytes(), storageRadiusByte...)
+// 	data = append(data, sample...)
+// 	data = append(data, key...)
 
-	return crypto.LegacyKeccak256(data)
-}
+// 	return crypto.LegacyKeccak256(data)
+// }

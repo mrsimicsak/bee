@@ -222,10 +222,10 @@ func buildBeeNode(ctx context.Context, c *command, cmd *cobra.Command, logger lo
 		debugAPIAddr = ""
 	}
 
-	signerConfig, err := c.configureSigner(cmd, logger)
-	if err != nil {
-		return nil, err
-	}
+	// signerConfig, err := c.configureSigner(cmd, logger)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	bootNode := c.config.GetBool(optionNameBootnodeMode)
 	fullNode := c.config.GetBool(optionNameFullNode)
@@ -291,7 +291,7 @@ func buildBeeNode(ctx context.Context, c *command, cmd *cobra.Command, logger lo
 		blockchainRpcEndpoint = swapEndpoint
 	}
 
-	b, err := node.NewBee(ctx, c.config.GetString(optionNameP2PAddr), signerConfig.publicKey, signerConfig.signer, networkID, logger, signerConfig.libp2pPrivateKey, signerConfig.pssPrivateKey, &node.Options{
+	b, err := node.NewBee(ctx, networkID, logger, &node.Options{
 		DataDir:                       c.config.GetString(optionNameDataDir),
 		CacheCapacity:                 c.config.GetUint64(optionNameCacheCapacity),
 		DBOpenFilesLimit:              c.config.GetUint64(optionNameDBOpenFilesLimit),

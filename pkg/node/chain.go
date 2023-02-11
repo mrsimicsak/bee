@@ -48,13 +48,13 @@ const (
 func InitChain(
 	ctx context.Context,
 	logger log.Logger,
-	stateStore storage.StateStorer,
+	// stateStore storage.StateStorer,
 	endpoint string,
 	oChainID int64,
-	signer crypto.Signer,
+	// signer crypto.Signer,
 	pollingInterval time.Duration,
 	chainEnabled bool,
-) (transaction.Backend, common.Address, int64, transaction.Monitor, transaction.Service, error) {
+) (transaction.Backend, int64, error) {
 	var backend transaction.Backend = &noOpChainBackend{
 		chainID: oChainID,
 	}
@@ -63,14 +63,14 @@ func InitChain(
 		// connect to the real one
 		rpcClient, err := rpc.DialContext(ctx, endpoint)
 		if err != nil {
-			return nil, common.Address{}, 0, nil, nil, fmt.Errorf("dial eth client: %w", err)
+			return nil, 0, fmt.Errorf("dial eth client: %w", err)
 		}
 
 		var versionString string
 		err = rpcClient.CallContext(ctx, &versionString, "web3_clientVersion")
 		if err != nil {
 			logger.Info("could not connect to backend; in a swap-enabled network a working blockchain node (for xdai network in production, goerli in testnet) is required; check your node or specify another node using --swap-endpoint.", "backend_endpoint", endpoint)
-			return nil, common.Address{}, 0, nil, nil, fmt.Errorf("eth client get version: %w", err)
+			return nil, 0, fmt.Errorf("eth client get version: %w", err)
 		}
 
 		logger.Info("connected to ethereum backend", "version", versionString)
@@ -80,22 +80,22 @@ func InitChain(
 
 	chainID, err := backend.ChainID(ctx)
 	if err != nil {
-		return nil, common.Address{}, 0, nil, nil, fmt.Errorf("get chain id: %w", err)
+		return nil, 0, fmt.Errorf("get chain id: %w", err)
 	}
 
-	overlayEthAddress, err := signer.EthereumAddress()
-	if err != nil {
-		return nil, common.Address{}, 0, nil, nil, fmt.Errorf("eth address: %w", err)
-	}
+	// overlayEthAddress, err := signer.EthereumAddress()
+	// if err != nil {
+	// 	return nil, common.Address{}, 0, nil, nil, fmt.Errorf("eth address: %w", err)
+	// }
 
-	transactionMonitor := transaction.NewMonitor(logger, backend, overlayEthAddress, pollingInterval, cancellationDepth)
+	// transactionMonitor := transaction.NewMonitor(logger, backend, overlayEthAddress, pollingInterval, cancellationDepth)
 
-	transactionService, err := transaction.NewService(logger, backend, signer, stateStore, chainID, transactionMonitor)
-	if err != nil {
-		return nil, common.Address{}, 0, nil, nil, fmt.Errorf("new transaction service: %w", err)
-	}
+	// transactionService, err := transaction.NewService(logger, backend, signer, stateStore, chainID, transactionMonitor)
+	// if err != nil {
+	// 	return nil, common.Address{}, 0, nil, nil, fmt.Errorf("new transaction service: %w", err)
+	// }
 
-	return backend, overlayEthAddress, chainID.Int64(), transactionMonitor, transactionService, nil
+	return backend, chainID.Int64(), nil
 }
 
 // InitChequebookFactory will initialize the chequebook factory with the given

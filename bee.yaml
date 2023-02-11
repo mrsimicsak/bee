@@ -1,0 +1,8 @@
+blockchain-rpc-endpoint: "ws://10.79.10.20:8545"
+config: C:\Users\matthew\.bee.yaml
+debug-api-addr: :1635
+debug-api-enable: true
+mainnet: true
+network-id: "1"
+storage-incentives-enable: true
+verbosity: 5
