@@ -1,17 +1,5 @@
 
-Welcome to Swarm.... Bzzz Bzzzz Bzzzz
-                \     /
-            \    o ^ o    /
-              \ (     ) /
-   ____________(%%%%%%%)____________
-  (     /   /  )%%%%%%%(  \   \     )
-  (___/___/__/           \__\___\___)
-     (     /  /(%%%%%%%)\  \     )
-      (__/___/ (%%%%%%%) \___\__)
-              /(       )\
-            /   (%%%%%)   \
-                 (%%%)
-                   !
+Starting Swarm Storage Incetives Monitoring Interface
 
 DISCLAIMER:
 This software is provided to you "as is", use at your own risk and without warranties of any kind.
