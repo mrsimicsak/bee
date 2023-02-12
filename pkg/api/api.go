@@ -229,16 +229,9 @@ func New(logger log.Logger, transaction transaction.Service, chainBackend transa
 	s := new(Service)
 
 	s.CORSAllowedOrigins = cors
-	// s.beeMode = beeMode
 	s.logger = logger.WithName(loggerName).Register()
 	s.loggerV1 = s.logger.V(1).Register()
-	// s.chequebookEnabled = chequebookEnabled
-	// s.swapEnabled = swapEnabled
-	// s.publicKey = publicKey
-	// s.pssPublicKey = pssPublicKey
-	// s.ethereumAddress = ethereumAddress
 	s.transaction = transaction
-	// s.batchStore = batchStore
 	s.chainBackend = chainBackend
 	s.metricsRegistry = newDebugMetrics()
 	s.preMapHooks = map[string]func(v string) (string, error){
@@ -267,7 +260,6 @@ func New(logger log.Logger, transaction transaction.Service, chainBackend transa
 func (s *Service) Configure(auth auth.Authenticator, tracer *tracing.Tracer, o Options, e ExtraOptions, chainID int64, erc20 erc20.Service) <-chan *pusher.Op {
 	s.auth = auth
 	s.chunkPushC = make(chan *pusher.Op)
-	// s.signer = signer
 	s.Options = o
 	s.tracer = tracer
 	s.metrics = newMetrics()

@@ -222,11 +222,6 @@ func buildBeeNode(ctx context.Context, c *command, cmd *cobra.Command, logger lo
 		debugAPIAddr = ""
 	}
 
-	// signerConfig, err := c.configureSigner(cmd, logger)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
 	bootNode := c.config.GetBool(optionNameBootnodeMode)
 	fullNode := c.config.GetBool(optionNameFullNode)
 

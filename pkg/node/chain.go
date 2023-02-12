@@ -48,10 +48,8 @@ const (
 func InitChain(
 	ctx context.Context,
 	logger log.Logger,
-	// stateStore storage.StateStorer,
 	endpoint string,
 	oChainID int64,
-	// signer crypto.Signer,
 	pollingInterval time.Duration,
 	chainEnabled bool,
 ) (transaction.Backend, int64, error) {
@@ -82,18 +80,6 @@ func InitChain(
 	if err != nil {
 		return nil, 0, fmt.Errorf("get chain id: %w", err)
 	}
-
-	// overlayEthAddress, err := signer.EthereumAddress()
-	// if err != nil {
-	// 	return nil, common.Address{}, 0, nil, nil, fmt.Errorf("eth address: %w", err)
-	// }
-
-	// transactionMonitor := transaction.NewMonitor(logger, backend, overlayEthAddress, pollingInterval, cancellationDepth)
-
-	// transactionService, err := transaction.NewService(logger, backend, signer, stateStore, chainID, transactionMonitor)
-	// if err != nil {
-	// 	return nil, common.Address{}, 0, nil, nil, fmt.Errorf("new transaction service: %w", err)
-	// }
 
 	return backend, chainID.Int64(), nil
 }

@@ -186,35 +186,14 @@ func NewBee(ctx context.Context, networkID uint64, logger log.Logger, o *Options
 	}(b)
 
 	var (
-		chainBackend transaction.Backend
-		// overlayEthAddress  common.Address
+		chainBackend       transaction.Backend
 		chainID            int64
 		transactionService transaction.Service
 		transactionMonitor transaction.Monitor
-		// chequebookFactory  chequebook.Factory
-		// chequebookService  chequebook.Service = new(noOpChequebookService)
-		// chequeStore        chequebook.ChequeStore
-		// cashoutService     chequebook.CashoutService
-		erc20Service erc20.Service
+		erc20Service       erc20.Service
 	)
 
 	chainEnabled := isChainEnabled(o, o.BlockchainRpcEndpoint, logger)
-
-	// var batchStore postage.Storer = new(postage.NoOpBatchStore)
-	// var evictFn func([]byte) error
-
-	// if chainEnabled {
-	// 	batchStore, err = batchstore.New(
-	// 		stateStore,
-	// 		func(id []byte) error {
-	// 			return evictFn(id)
-	// 		},
-	// 		logger,
-	// 	)
-	// 	if err != nil {
-	// 		return nil, fmt.Errorf("batchstore: %w", err)
-	// 	}
-	// }
 
 	chainBackend, chainID, err = InitChain(
 		ctx,
@@ -264,7 +243,6 @@ func NewBee(ctx context.Context, networkID uint64, logger log.Logger, o *Options
 
 		debugService = api.New(logger, transactionService, chainBackend, o.CORSAllowedOrigins)
 		debugService.MountTechnicalDebug()
-		// debugService.SetProbe(probe)
 
 		debugAPIServer := &http.Server{
 			IdleTimeout:       30 * time.Second,
@@ -285,161 +263,14 @@ func NewBee(ctx context.Context, networkID uint64, logger log.Logger, o *Options
 		b.debugAPIServer = debugAPIServer
 	}
 
-	// var apiService *api.Service
-
-	// if o.Restricted {
-	// 	apiService = api.New(*publicKey, pssPrivateKey.PublicKey, overlayEthAddress, logger, transactionService, batchStore, beeNodeMode, o.ChequebookEnable, o.SwapEnable, chainBackend, o.CORSAllowedOrigins)
-	// 	apiService.MountTechnicalDebug()
-	// 	apiService.SetProbe(probe)
-
-	// 	apiServer := &http.Server{
-	// 		IdleTimeout:       30 * time.Second,
-	// 		ReadHeaderTimeout: 3 * time.Second,
-	// 		Handler:           apiService,
-	// 		ErrorLog:          stdlog.New(b.errorLogWriter, "", 0),
-	// 	}
-
-	// 	apiListener, err := net.Listen("tcp", o.APIAddr)
-	// 	if err != nil {
-	// 		return nil, fmt.Errorf("api listener: %w", err)
-	// 	}
-
-	// 	go func() {
-	// 		logger.Info("starting debug & api server", "address", apiListener.Addr())
-
-	// 		if err := apiServer.Serve(apiListener); err != nil && !errors.Is(err, http.ErrServerClosed) {
-	// 			logger.Debug("debug & api server failed to start", "error", err)
-	// 			logger.Error(nil, "debug & api server failed to start")
-	// 		}
-	// 	}()
-
-	// 	b.apiServer = apiServer
-	// 	b.apiCloser = apiServer
-	// }
-
-	// // Sync the with the given Ethereum backend:
-	// isSynced, _, err := transaction.IsSynced(ctx, chainBackend, maxDelay)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("is synced: %w", err)
-	// }
-	// if !isSynced {
-	// 	logger.Info("waiting to sync with the Ethereum backend")
-
-	// 	err := transaction.WaitSynced(ctx, logger, chainBackend, maxDelay)
-	// 	if err != nil {
-	// 		return nil, fmt.Errorf("waiting backend sync: %w", err)
-	// 	}
-	// }
-
-	// if o.SwapEnable {
-	// 	chequebookFactory, err = InitChequebookFactory(
-	// 		logger,
-	// 		chainBackend,
-	// 		chainID,
-	// 		transactionService,
-	// 		o.SwapFactoryAddress,
-	// 		o.SwapLegacyFactoryAddresses,
-	// 	)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-
-	// 	if err = chequebookFactory.VerifyBytecode(ctx); err != nil {
-	// 		return nil, fmt.Errorf("factory fail: %w", err)
-	// 	}
-
-	// 	erc20Address, err := chequebookFactory.ERC20Address(ctx)
-	// 	if err != nil {
-	// 		return nil, fmt.Errorf("factory fail: %w", err)
-	// 	}
-
-	// 	erc20Service = erc20.New(transactionService, erc20Address)
-
-	// 	if o.ChequebookEnable && chainEnabled {
-	// 		chequebookService, err = InitChequebookService(
-	// 			ctx,
-	// 			logger,
-	// 			stateStore,
-	// 			signer,
-	// 			chainID,
-	// 			chainBackend,
-	// 			overlayEthAddress,
-	// 			transactionService,
-	// 			chequebookFactory,
-	// 			o.SwapInitialDeposit,
-	// 			o.DeployGasPrice,
-	// 			erc20Service,
-	// 		)
-	// 		if err != nil {
-	// 			return nil, err
-	// 		}
-	// 	}
-
-	// 	chequeStore, cashoutService = initChequeStoreCashout(
-	// 		stateStore,
-	// 		chainBackend,
-	// 		chequebookFactory,
-	// 		chainID,
-	// 		overlayEthAddress,
-	// 		transactionService,
-	// 	)
-	// }
-
-	// pubKey, _ := signer.PublicKey()
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// // if theres a previous transaction hash, and not a new chequebook deployment on a node starting from scratch
-	// // get old overlay
-	// // mine nonce that gives similar new overlay
-	// nonce, nonceExists, err := overlayNonceExists(stateStore)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("check presence of nonce: %w", err)
-	// }
-
-	// swarmAddress, err := crypto.NewOverlayAddress(*pubKey, networkID, nonce)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("compute overlay address: %w", err)
-	// }
-	// logger.Info("using overlay address", "address", swarmAddress)
-
-	// if !nonceExists {
-	// 	err := setOverlayNonce(stateStore, nonce)
-	// 	if err != nil {
-	// 		return nil, fmt.Errorf("statestore: save new overlay nonce: %w", err)
-	// 	}
-
-	// 	err = SetOverlayInStore(swarmAddress, stateStore)
-	// 	if err != nil {
-	// 		return nil, fmt.Errorf("statestore: save new overlay: %w", err)
-	// 	}
-	// }
-
 	var (
 		eventListener postage.Listener
 	)
-
-	// save
-	// chainCfg, _ := config.GetByChainID(chainID)
 
 	var (
 		agent *storageincentives.Agent
 	)
 
-	// redistributionContractAddress := chainCfg.RedistributionAddress
-	// if o.RedistributionContractAddress != "" {
-	// 	if !common.IsHexAddress(o.RedistributionContractAddress) {
-	// 		return nil, errors.New("malformed redistribution contract address")
-	// 	}
-	// 	redistributionContractAddress = common.HexToAddress(o.RedistributionContractAddress)
-	// }
-	// redistributionContractABI, err := abi.JSON(strings.NewReader(chainCfg.RedistributionABI))
-	// if err != nil {
-	// 	return nil, fmt.Errorf("unable to parse redistribution ABI: %w", err)
-	// }
-
-	// redistributionContract := redistribution.New(swarmAddress, logger, transactionService, redistributionContractAddress, redistributionContractABI)
 	agent = storageincentives.New(chainBackend, logger, o.BlockTime, storageincentives.DefaultBlocksPerRound, storageincentives.DefaultBlocksPerPhase)
 	b.storageIncetivesCloser = agent
 
@@ -458,36 +289,9 @@ func NewBee(ctx context.Context, networkID uint64, logger log.Logger, o *Options
 		if l, ok := logger.(metrics.Collector); ok {
 			debugService.MustRegisterMetrics(l.Metrics()...)
 		}
-		// if nsMetrics, ok := ns.(metrics.Collector); ok {
-		// 	debugService.MustRegisterMetrics(nsMetrics.Metrics()...)
-		// }
-		// debugService.MustRegisterMetrics(pseudosettleService.Metrics()...)
-		// if swapService != nil {
-		// 	debugService.MustRegisterMetrics(swapService.Metrics()...)
-		// }
 
 		extraOpts := api.ExtraOptions{
-			// Pingpong:         pingPong,
-			// TopologyDriver:   kad,
-			// LightNodes:       lightNodes,
-			// Accounting:       acc,
-			// Pseudosettle:     pseudosettleService,
-			// Swap:             swapService,
-			// Chequebook:       chequebookService,
 			BlockTime: o.BlockTime,
-			// Tags:             tagService,
-			// Storer:           ns,
-			// Resolver:         multiResolver,
-			// Pss:              pssService,
-			// TraversalService: traversalService,
-			// Pinning:          pinningService,
-			// FeedFactory:      feedFactory,
-			// Post:             post,
-			// PostageContract:  postageStampContractService,
-			// Staking:          stakingContract,
-			// Steward:          steward,
-			// SyncStatus:       syncStatusFn,
-			// IndexDebugger:    storer,
 		}
 
 		debugService.Configure(authenticator, tracer, api.Options{
@@ -498,14 +302,6 @@ func NewBee(ctx context.Context, networkID uint64, logger log.Logger, o *Options
 
 		debugService.MountTechnicalDebug()
 	}
-
-	// if err := kad.Start(ctx); err != nil {
-	// 	return nil, err
-	// }
-
-	// if err := p2ps.Ready(); err != nil {
-	// 	return nil, err
-	// }
 
 	return b, nil
 }
