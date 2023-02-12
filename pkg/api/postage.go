@@ -405,7 +405,6 @@ func (s *Service) reserveStateHandler(w http.ResponseWriter, _ *http.Request) {
 func (s *Service) chainStateHandler(w http.ResponseWriter, r *http.Request) {
 	logger := tracing.NewLoggerWithTraceID(r.Context(), s.logger.WithName("get_chainstate").Build())
 
-	state := s.batchStore.GetChainState()
 	chainTip, err := s.chainBackend.BlockNumber(r.Context())
 	if err != nil {
 		logger.Debug("get block number failed", "error", err)
@@ -414,10 +413,7 @@ func (s *Service) chainStateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonhttp.OK(w, chainStateResponse{
-		ChainTip:     chainTip,
-		Block:        state.Block,
-		TotalAmount:  bigint.Wrap(state.TotalAmount),
-		CurrentPrice: bigint.Wrap(state.CurrentPrice),
+		ChainTip: chainTip,
 	})
 }
 

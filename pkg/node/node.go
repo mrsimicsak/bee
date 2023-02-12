@@ -496,7 +496,7 @@ func NewBee(ctx context.Context, networkID uint64, logger log.Logger, o *Options
 			Restricted:         o.Restricted,
 		}, extraOpts, chainID, erc20Service)
 
-		debugService.MountDebug(false)
+		debugService.MountTechnicalDebug()
 	}
 
 	// if err := kad.Start(ctx); err != nil {
