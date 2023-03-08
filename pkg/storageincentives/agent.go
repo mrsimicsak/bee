@@ -11,11 +11,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethersphere/bee/pkg/log"
-	"github.com/ethersphere/bee/pkg/postage"
-	"github.com/ethersphere/bee/pkg/postage/postagecontract"
-	"github.com/ethersphere/bee/pkg/storage"
 	"github.com/ethersphere/bee/pkg/storageincentives/redistribution"
 	"github.com/ethersphere/bee/pkg/swarm"
 )
@@ -29,7 +28,18 @@ const (
 
 type ChainBackend interface {
 	BlockNumber(context.Context) (uint64, error)
+	BlockByNumber(context.Context, *big.Int) (*types.Block, error)
 	HeaderByNumber(context.Context, *big.Int) (*types.Header, error)
+	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
+	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
+	EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error)
+	FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error)
+	PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error)
+	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
+	SendTransaction(ctx context.Context, tx *types.Transaction) error
+	SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error)
+	SuggestGasPrice(ctx context.Context) (*big.Int, error)
+	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
 }
 
 type Monitor interface {
@@ -42,10 +52,7 @@ type Agent struct {
 	backend        ChainBackend
 	blocksPerRound uint64
 	monitor        Monitor
-	contract       redistribution.Contract
-	batchExpirer   postagecontract.PostageBatchExpirer
-	reserve        postage.Storer
-	sampler        storage.Sampler
+	contract       redistribution.Redistribution
 	overlay        swarm.Address
 	quit           chan struct{}
 	wg             sync.WaitGroup
@@ -63,11 +70,38 @@ func New(
 		blocksPerRound: blocksPerRound,
 		quit:           make(chan struct{}),
 	}
+	address := common.HexToAddress("0x8c26b7CA61A6608B011cBa43d8cA4476B6D8dA17")
+
+	contract, err := redistribution.NewRedistribution(address, s.backend)
+	if err == nil {
+		return nil
+	}
+	s.contract = *contract
 
 	s.wg.Add(1)
 	go s.start(blockTime, blocksPerRound, blocksPerPhase)
 
 	return s
+}
+
+type BlockEvent struct {
+	EventType string
+	Overlay   swarm.Address
+}
+
+func (a *Agent) GetBlockEvents(ctx context.Context, blockNum *big.Int) ([]BlockEvent, error) {
+	// block, err := a.backend.BlockByNumber(ctx, blockNum)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	// for _, tx := range block.Transactions() {
+	// 	if tx.To().Hex() == "0x8c26b7CA61A6608B011cBa43d8cA4476B6D8dA17" {
+	// 		a.logger.Debug(tx.)
+	// 	}
+	// }
+
+	return nil, nil
 }
 
 // start polls the current block number, calculates, and publishes only once the current phase.

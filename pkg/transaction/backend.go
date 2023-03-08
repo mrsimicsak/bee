@@ -29,10 +29,13 @@ type Backend interface {
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 	TransactionByHash(ctx context.Context, hash common.Hash) (tx *types.Transaction, isPending bool, err error)
 	BlockNumber(ctx context.Context) (uint64, error)
+	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
 	BalanceAt(ctx context.Context, address common.Address, block *big.Int) (*big.Int, error)
 	NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error)
 	FilterLogs(ctx context.Context, query ethereum.FilterQuery) ([]types.Log, error)
 	ChainID(ctx context.Context) (*big.Int, error)
+	PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error)
+	SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error)
 
 	Close()
 }

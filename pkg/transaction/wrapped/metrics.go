@@ -13,20 +13,23 @@ type metrics struct {
 	TotalRPCCalls  prometheus.Counter
 	TotalRPCErrors prometheus.Counter
 
-	TransactionReceiptCalls prometheus.Counter
-	TransactionCalls        prometheus.Counter
-	BlockNumberCalls        prometheus.Counter
-	BlockHeaderCalls        prometheus.Counter
-	BalanceCalls            prometheus.Counter
-	CodeAtCalls             prometheus.Counter
-	NonceAtCalls            prometheus.Counter
-	PendingNonceCalls       prometheus.Counter
-	CallContractCalls       prometheus.Counter
-	SuggestGasPriceCalls    prometheus.Counter
-	EstimateGasCalls        prometheus.Counter
-	SendTransactionCalls    prometheus.Counter
-	FilterLogsCalls         prometheus.Counter
-	ChainIDCalls            prometheus.Counter
+	TransactionReceiptCalls  prometheus.Counter
+	TransactionCalls         prometheus.Counter
+	BlockNumberCalls         prometheus.Counter
+	BlockByNumberCalls       prometheus.Counter
+	BlockHeaderCalls         prometheus.Counter
+	BalanceCalls             prometheus.Counter
+	CodeAtCalls              prometheus.Counter
+	NonceAtCalls             prometheus.Counter
+	PendingNonceCalls        prometheus.Counter
+	CallContractCalls        prometheus.Counter
+	SuggestGasPriceCalls     prometheus.Counter
+	EstimateGasCalls         prometheus.Counter
+	SendTransactionCalls     prometheus.Counter
+	FilterLogsCalls          prometheus.Counter
+	ChainIDCalls             prometheus.Counter
+	PendingCodeAtCalls       prometheus.Counter
+	SubscribeFilterLogsCalls prometheus.Counter
 }
 
 func newMetrics() metrics {

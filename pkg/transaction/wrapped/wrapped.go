@@ -68,6 +68,28 @@ func (b *wrappedBackend) BlockNumber(ctx context.Context) (uint64, error) {
 	return blockNumber, nil
 }
 
+func (b *wrappedBackend) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
+	b.metrics.TotalRPCCalls.Inc()
+	b.metrics.BlockByNumberCalls.Inc()
+	block, err := b.backend.BlockByNumber(ctx, number)
+	if err != nil {
+		b.metrics.TotalRPCErrors.Inc()
+		return nil, err
+	}
+	return block, nil
+}
+
+func (b *wrappedBackend) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
+	b.metrics.TotalRPCCalls.Inc()
+	b.metrics.PendingCodeAtCalls.Inc()
+	data, err := b.backend.PendingCodeAt(ctx, account)
+	if err != nil {
+		b.metrics.TotalRPCErrors.Inc()
+		return nil, err
+	}
+	return data, nil
+}
+
 func (b *wrappedBackend) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error) {
 	b.metrics.TotalRPCCalls.Inc()
 	b.metrics.BlockHeaderCalls.Inc()
@@ -189,6 +211,17 @@ func (b *wrappedBackend) FilterLogs(ctx context.Context, query ethereum.FilterQu
 		return nil, err
 	}
 	return logs, nil
+}
+
+func (b *wrappedBackend) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
+	b.metrics.TotalRPCCalls.Inc()
+	b.metrics.SubscribeFilterLogsCalls.Inc()
+	subscription, err := b.backend.SubscribeFilterLogs(ctx, q, ch)
+	if err != nil {
+		b.metrics.TotalRPCErrors.Inc()
+		return nil, err
+	}
+	return subscription, nil
 }
 
 func (b *wrappedBackend) ChainID(ctx context.Context) (*big.Int, error) {
