@@ -198,7 +198,6 @@ func (s *Service) SetSwarmAddress(addr *swarm.Address) {
 type Options struct {
 	CORSAllowedOrigins []string
 	WsPingPeriod       time.Duration
-	Restricted         bool
 }
 
 type ExtraOptions struct {

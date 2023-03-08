@@ -51,30 +51,27 @@ func InitChain(
 	endpoint string,
 	oChainID int64,
 	pollingInterval time.Duration,
-	chainEnabled bool,
 ) (transaction.Backend, int64, error) {
 	var backend transaction.Backend = &noOpChainBackend{
 		chainID: oChainID,
 	}
 
-	if chainEnabled {
-		// connect to the real one
-		rpcClient, err := rpc.DialContext(ctx, endpoint)
-		if err != nil {
-			return nil, 0, fmt.Errorf("dial eth client: %w", err)
-		}
-
-		var versionString string
-		err = rpcClient.CallContext(ctx, &versionString, "web3_clientVersion")
-		if err != nil {
-			logger.Info("could not connect to backend; in a swap-enabled network a working blockchain node (for xdai network in production, goerli in testnet) is required; check your node or specify another node using --swap-endpoint.", "backend_endpoint", endpoint)
-			return nil, 0, fmt.Errorf("eth client get version: %w", err)
-		}
-
-		logger.Info("connected to ethereum backend", "version", versionString)
-
-		backend = wrapped.NewBackend(ethclient.NewClient(rpcClient))
+	// connect to the real one
+	rpcClient, err := rpc.DialContext(ctx, endpoint)
+	if err != nil {
+		return nil, 0, fmt.Errorf("dial eth client: %w", err)
 	}
+
+	var versionString string
+	err = rpcClient.CallContext(ctx, &versionString, "web3_clientVersion")
+	if err != nil {
+		logger.Info("could not connect to backend; in a swap-enabled network a working blockchain node (for xdai network in production, goerli in testnet) is required; check your node or specify another node using --swap-endpoint.", "backend_endpoint", endpoint)
+		return nil, 0, fmt.Errorf("eth client get version: %w", err)
+	}
+
+	logger.Info("connected to ethereum backend", "version", versionString)
+
+	backend = wrapped.NewBackend(ethclient.NewClient(rpcClient))
 
 	chainID, err := backend.ChainID(ctx)
 	if err != nil {
@@ -382,6 +379,9 @@ func (m noOpChainBackend) HeaderByNumber(context.Context, *big.Int) (*types.Head
 func (m noOpChainBackend) PendingNonceAt(context.Context, common.Address) (uint64, error) {
 	panic("chain no op: PendingNonceAt")
 }
+func (m noOpChainBackend) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
+	panic("chain no op: PendingCodeAt")
+}
 func (m noOpChainBackend) SuggestGasPrice(context.Context) (*big.Int, error) {
 	panic("chain no op: SuggestGasPrice")
 }
@@ -405,6 +405,9 @@ func (m noOpChainBackend) TransactionByHash(context.Context, common.Hash) (tx *t
 func (m noOpChainBackend) BlockNumber(context.Context) (uint64, error) {
 	return 4, nil
 }
+func (m noOpChainBackend) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
+	panic("chain no op: BlockByNumber")
+}
 func (m noOpChainBackend) BalanceAt(context.Context, common.Address, *big.Int) (*big.Int, error) {
 	return nil, postagecontract.ErrChainDisabled
 }
@@ -418,3 +421,7 @@ func (m noOpChainBackend) ChainID(context.Context) (*big.Int, error) {
 	return big.NewInt(m.chainID), nil
 }
 func (m noOpChainBackend) Close() {}
+
+func (m noOpChainBackend) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
+	panic("chain no op: FilterLogs")
+}

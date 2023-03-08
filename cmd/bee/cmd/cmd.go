@@ -11,11 +11,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/ethersphere/bee/pkg/log"
 	"github.com/ethersphere/bee/pkg/node"
-	"github.com/ethersphere/bee/pkg/swarm"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -230,19 +228,7 @@ func (c *command) setHomeDir() (err error) {
 }
 
 func (c *command) setAllFlags(cmd *cobra.Command) {
-	cmd.Flags().String(optionNameDataDir, filepath.Join(c.homeDir, ".bee"), "data directory")
-	cmd.Flags().Uint64(optionNameCacheCapacity, 1000000, fmt.Sprintf("cache capacity in chunks, multiply by %d to get approximate capacity in bytes", swarm.ChunkSize))
-	cmd.Flags().Uint64(optionNameDBOpenFilesLimit, 200, "number of open files allowed by database")
-	cmd.Flags().Uint64(optionNameDBBlockCacheCapacity, 32*1024*1024, "size of block cache of the database in bytes")
-	cmd.Flags().Uint64(optionNameDBWriteBufferSize, 32*1024*1024, "size of the database write buffer in bytes")
-	cmd.Flags().Bool(optionNameDBDisableSeeksCompaction, false, "disables db compactions triggered by seeks")
-	cmd.Flags().String(optionNamePassword, "", "password for decrypting keys")
-	cmd.Flags().String(optionNamePasswordFile, "", "path to a file that contains password for decrypting keys")
 	cmd.Flags().String(optionNameAPIAddr, ":1633", "HTTP API listen address")
-	cmd.Flags().String(optionNameP2PAddr, ":1634", "P2P listen address")
-	cmd.Flags().String(optionNameNATAddr, "", "NAT exposed address")
-	cmd.Flags().Bool(optionNameP2PWSEnable, false, "enable P2P WebSocket transport")
-	cmd.Flags().StringSlice(optionNameBootnodes, []string{""}, "initial nodes to connect to")
 	cmd.Flags().Bool(optionNameDebugAPIEnable, false, "enable debug HTTP API")
 	cmd.Flags().String(optionNameDebugAPIAddr, ":1635", "debug HTTP API listen address")
 	cmd.Flags().Uint64(optionNameNetworkID, 1, "ID of the Swarm network")
@@ -253,45 +239,13 @@ func (c *command) setAllFlags(cmd *cobra.Command) {
 	cmd.Flags().String(optionNameTracingPort, "", "port to send tracing data")
 	cmd.Flags().String(optionNameTracingServiceName, "bee", "service name identifier for tracing")
 	cmd.Flags().String(optionNameVerbosity, "info", "log verbosity level 0=silent, 1=error, 2=warn, 3=info, 4=debug, 5=trace")
-	cmd.Flags().String(optionWelcomeMessage, "", "send a welcome message string during handshakes")
-	cmd.Flags().String(optionNamePaymentThreshold, "13500000", "threshold in BZZ where you expect to get paid from your peers")
-	cmd.Flags().Int64(optionNamePaymentTolerance, 25, "excess debt above payment threshold in percentages where you disconnect from your peer")
-	cmd.Flags().Int64(optionNamePaymentEarly, 50, "percentage below the peers payment threshold when we initiate settlement")
-	cmd.Flags().StringSlice(optionNameResolverEndpoints, []string{}, "ENS compatible API endpoint for a TLD and with contract address, can be repeated, format [tld:][contract-addr@]url")
-	cmd.Flags().Bool(optionNameBootnodeMode, false, "cause the node to always accept incoming connections")
-	cmd.Flags().Bool(optionNameClefSignerEnable, false, "enable clef signer")
-	cmd.Flags().String(optionNameClefSignerEndpoint, "", "clef signer endpoint")
-	cmd.Flags().String(optionNameClefSignerEthereumAddress, "", "ethereum address to use from clef signer")
-	cmd.Flags().String(optionNameSwapEndpoint, "", "swap blockchain endpoint") // deprecated: use rpc endpoint instead
 	cmd.Flags().String(optionNameBlockchainRpcEndpoint, "", "rpc blockchain endpoint")
-	cmd.Flags().String(optionNameSwapFactoryAddress, "", "swap factory addresses")
-	cmd.Flags().StringSlice(optionNameSwapLegacyFactoryAddresses, nil, "legacy swap factory addresses")
-	cmd.Flags().String(optionNameSwapInitialDeposit, "0", "initial deposit if deploying a new chequebook")
-	cmd.Flags().Bool(optionNameSwapEnable, true, "enable swap")
-	cmd.Flags().Bool(optionNameChequebookEnable, true, "enable chequebook")
-	cmd.Flags().Bool(optionNameFullNode, false, "cause the node to start in full mode")
 	cmd.Flags().String(optionNamePostageContractAddress, "", "postage stamp contract address")
 	cmd.Flags().Uint64(optionNamePostageContractStartBlock, 0, "postage stamp contract start block number")
 	cmd.Flags().String(optionNamePriceOracleAddress, "", "price oracle contract address")
 	cmd.Flags().String(optionNameRedistributionAddress, "", "redistribution contract address")
 	cmd.Flags().String(optionNameStakingAddress, "", "staking contract address")
-	cmd.Flags().String(optionNameTransactionHash, "", "proof-of-identity transaction hash")
-	cmd.Flags().String(optionNameBlockHash, "", "block hash of the block whose parent is the block that contains the transaction hash")
 	cmd.Flags().Uint64(optionNameBlockTime, 15, "chain block time")
-	cmd.Flags().String(optionNameSwapDeploymentGasPrice, "", "gas price in wei to use for deployment and funding")
-	cmd.Flags().Duration(optionWarmUpTime, time.Minute*5, "time to warmup the node before some major protocols can be kicked off.")
-	cmd.Flags().Bool(optionNameMainNet, true, "triggers connect to main net bootnodes.")
-	cmd.Flags().Bool(optionNameRetrievalCaching, true, "enable forwarded content caching")
-	cmd.Flags().Bool(optionNameResync, false, "forces the node to resync postage contract data")
-	cmd.Flags().Bool(optionNamePProfBlock, false, "enable pprof block profile")
-	cmd.Flags().Bool(optionNamePProfMutex, false, "enable pprof mutex profile")
-	cmd.Flags().StringSlice(optionNameStaticNodes, []string{}, "protect nodes from getting kicked out on bootnode")
-	cmd.Flags().Bool(optionNameAllowPrivateCIDRs, false, "allow to advertise private CIDRs to the public network")
-	cmd.Flags().Bool(optionNameRestrictedAPI, false, "enable permission check on the http APIs")
-	cmd.Flags().String(optionNameTokenEncryptionKey, "", "admin username to get the security token")
-	cmd.Flags().String(optionNameAdminPasswordHash, "", "bcrypt hash of the admin password to get the security token")
-	cmd.Flags().Bool(optionNameUsePostageSnapshot, false, "bootstrap node using postage snapshot from the network")
-	cmd.Flags().Bool(optionNameStorageIncentivesEnable, true, "enable storage incentives feature")
 }
 
 func newLogger(cmd *cobra.Command, verbosity string) (log.Logger, error) {

@@ -32,9 +32,7 @@ import (
 	memkeystore "github.com/ethersphere/bee/pkg/keystore/mem"
 	"github.com/ethersphere/bee/pkg/log"
 	"github.com/ethersphere/bee/pkg/node"
-	"github.com/ethersphere/bee/pkg/resolver/multiresolver"
 	"github.com/ethersphere/bee/pkg/spinlock"
-	"github.com/ethersphere/bee/pkg/swarm"
 	"github.com/kardianos/service"
 	"github.com/spf13/cobra"
 )
@@ -203,27 +201,9 @@ func buildBeeNodeAsync(ctx context.Context, c *command, cmd *cobra.Command, logg
 func buildBeeNode(ctx context.Context, c *command, cmd *cobra.Command, logger log.Logger) (*node.Bee, error) {
 	var err error
 
-	// If the resolver is specified, resolve all connection strings
-	// and fail on any errors.
-	var resolverCfgs []multiresolver.ConnectionConfig
-	resolverEndpoints := c.config.GetStringSlice(optionNameResolverEndpoints)
-	if len(resolverEndpoints) > 0 {
-		resolverCfgs, err = multiresolver.ParseConnectionStrings(resolverEndpoints)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	debugAPIAddr := c.config.GetString(optionNameDebugAPIAddr)
 	if !c.config.GetBool(optionNameDebugAPIEnable) {
 		debugAPIAddr = ""
-	}
-
-	bootNode := c.config.GetBool(optionNameBootnodeMode)
-	fullNode := c.config.GetBool(optionNameFullNode)
-
-	if bootNode && !fullNode {
-		return nil, errors.New("boot node must be started as a full node")
 	}
 
 	mainnet := c.config.GetBool(optionNameMainNet)
@@ -263,20 +243,6 @@ func buildBeeNode(ctx context.Context, c *command, cmd *cobra.Command, logger lo
 		tracingEndpoint = strings.Join([]string{c.config.GetString(optionNameTracingHost), c.config.GetString(optionNameTracingPort)}, ":")
 	}
 
-	staticNodesOpt := c.config.GetStringSlice(optionNameStaticNodes)
-	staticNodes := make([]swarm.Address, 0, len(staticNodesOpt))
-	for _, p := range staticNodesOpt {
-		addr, err := swarm.ParseHexAddress(p)
-		if err != nil {
-			return nil, fmt.Errorf("invalid swarm address %q configured for static node", p)
-		}
-
-		staticNodes = append(staticNodes, addr)
-	}
-	if len(staticNodes) > 0 && !bootNode {
-		return nil, errors.New("static nodes can only be configured on bootnodes")
-	}
-
 	swapEndpoint := c.config.GetString(optionNameSwapEndpoint)
 	blockchainRpcEndpoint := c.config.GetString(optionNameBlockchainRpcEndpoint)
 	if swapEndpoint != "" {
@@ -284,58 +250,24 @@ func buildBeeNode(ctx context.Context, c *command, cmd *cobra.Command, logger lo
 	}
 
 	b, err := node.NewBee(ctx, networkID, logger, &node.Options{
-		DataDir:                       c.config.GetString(optionNameDataDir),
-		CacheCapacity:                 c.config.GetUint64(optionNameCacheCapacity),
-		DBOpenFilesLimit:              c.config.GetUint64(optionNameDBOpenFilesLimit),
-		DBBlockCacheCapacity:          c.config.GetUint64(optionNameDBBlockCacheCapacity),
-		DBWriteBufferSize:             c.config.GetUint64(optionNameDBWriteBufferSize),
-		DBDisableSeeksCompaction:      c.config.GetBool(optionNameDBDisableSeeksCompaction),
 		APIAddr:                       c.config.GetString(optionNameAPIAddr),
 		DebugAPIAddr:                  debugAPIAddr,
-		Addr:                          c.config.GetString(optionNameP2PAddr),
-		NATAddr:                       c.config.GetString(optionNameNATAddr),
-		EnableWS:                      c.config.GetBool(optionNameP2PWSEnable),
-		WelcomeMessage:                c.config.GetString(optionWelcomeMessage),
-		Bootnodes:                     networkConfig.bootNodes,
 		CORSAllowedOrigins:            c.config.GetStringSlice(optionCORSAllowedOrigins),
 		TracingEnabled:                c.config.GetBool(optionNameTracingEnabled),
 		TracingEndpoint:               tracingEndpoint,
 		TracingServiceName:            c.config.GetString(optionNameTracingServiceName),
 		Logger:                        logger,
-		PaymentThreshold:              c.config.GetString(optionNamePaymentThreshold),
-		PaymentTolerance:              c.config.GetInt64(optionNamePaymentTolerance),
-		PaymentEarly:                  c.config.GetInt64(optionNamePaymentEarly),
-		ResolverConnectionCfgs:        resolverCfgs,
-		BootnodeMode:                  bootNode,
 		BlockchainRpcEndpoint:         blockchainRpcEndpoint,
-		SwapFactoryAddress:            c.config.GetString(optionNameSwapFactoryAddress),
-		SwapLegacyFactoryAddresses:    c.config.GetStringSlice(optionNameSwapLegacyFactoryAddresses),
-		SwapInitialDeposit:            c.config.GetString(optionNameSwapInitialDeposit),
-		SwapEnable:                    c.config.GetBool(optionNameSwapEnable),
-		ChequebookEnable:              c.config.GetBool(optionNameChequebookEnable),
-		FullNodeMode:                  fullNode,
-		Transaction:                   c.config.GetString(optionNameTransactionHash),
-		BlockHash:                     c.config.GetString(optionNameBlockHash),
 		PostageContractAddress:        c.config.GetString(optionNamePostageContractAddress),
 		PostageContractStartBlock:     c.config.GetUint64(optionNamePostageContractStartBlock),
 		PriceOracleAddress:            c.config.GetString(optionNamePriceOracleAddress),
 		RedistributionContractAddress: c.config.GetString(optionNameRedistributionAddress),
 		StakingContractAddress:        c.config.GetString(optionNameStakingAddress),
 		BlockTime:                     networkConfig.blockTime,
-		DeployGasPrice:                c.config.GetString(optionNameSwapDeploymentGasPrice),
-		WarmupTime:                    c.config.GetDuration(optionWarmUpTime),
 		ChainID:                       networkConfig.chainID,
-		RetrievalCaching:              c.config.GetBool(optionNameRetrievalCaching),
-		Resync:                        c.config.GetBool(optionNameResync),
 		BlockProfile:                  c.config.GetBool(optionNamePProfBlock),
 		MutexProfile:                  c.config.GetBool(optionNamePProfMutex),
-		StaticNodes:                   staticNodes,
 		AllowPrivateCIDRs:             c.config.GetBool(optionNameAllowPrivateCIDRs),
-		Restricted:                    c.config.GetBool(optionNameRestrictedAPI),
-		TokenEncryptionKey:            c.config.GetString(optionNameTokenEncryptionKey),
-		AdminPasswordHash:             c.config.GetString(optionNameAdminPasswordHash),
-		UsePostageSnapshot:            c.config.GetBool(optionNameUsePostageSnapshot),
-		EnableStorageIncentives:       c.config.GetBool(optionNameStorageIncentivesEnable),
 	})
 
 	return b, err

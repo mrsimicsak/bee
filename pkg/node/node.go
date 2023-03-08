@@ -25,10 +25,8 @@ import (
 	"github.com/ethersphere/bee/pkg/metrics"
 	"github.com/ethersphere/bee/pkg/p2p"
 	"github.com/ethersphere/bee/pkg/postage"
-	"github.com/ethersphere/bee/pkg/resolver/multiresolver"
 	"github.com/ethersphere/bee/pkg/settlement/swap/erc20"
 	"github.com/ethersphere/bee/pkg/storageincentives"
-	"github.com/ethersphere/bee/pkg/swarm"
 	"github.com/ethersphere/bee/pkg/topology"
 	"github.com/ethersphere/bee/pkg/tracing"
 	"github.com/ethersphere/bee/pkg/transaction"
@@ -78,58 +76,24 @@ type Bee struct {
 }
 
 type Options struct {
-	DataDir                       string
-	CacheCapacity                 uint64
-	DBOpenFilesLimit              uint64
-	DBWriteBufferSize             uint64
-	DBBlockCacheCapacity          uint64
-	DBDisableSeeksCompaction      bool
 	APIAddr                       string
 	DebugAPIAddr                  string
-	Addr                          string
-	NATAddr                       string
-	EnableWS                      bool
-	WelcomeMessage                string
-	Bootnodes                     []string
 	CORSAllowedOrigins            []string
 	Logger                        log.Logger
 	TracingEnabled                bool
 	TracingEndpoint               string
 	TracingServiceName            string
-	PaymentThreshold              string
-	PaymentTolerance              int64
-	PaymentEarly                  int64
-	ResolverConnectionCfgs        []multiresolver.ConnectionConfig
-	RetrievalCaching              bool
-	BootnodeMode                  bool
 	BlockchainRpcEndpoint         string
-	SwapFactoryAddress            string
-	SwapLegacyFactoryAddresses    []string
-	SwapInitialDeposit            string
-	SwapEnable                    bool
-	ChequebookEnable              bool
-	FullNodeMode                  bool
-	Transaction                   string
-	BlockHash                     string
 	PostageContractAddress        string
 	PostageContractStartBlock     uint64
 	StakingContractAddress        string
 	PriceOracleAddress            string
 	RedistributionContractAddress string
 	BlockTime                     time.Duration
-	DeployGasPrice                string
-	WarmupTime                    time.Duration
 	ChainID                       int64
-	Resync                        bool
 	BlockProfile                  bool
 	MutexProfile                  bool
-	StaticNodes                   []swarm.Address
 	AllowPrivateCIDRs             bool
-	Restricted                    bool
-	TokenEncryptionKey            string
-	AdminPasswordHash             string
-	UsePostageSnapshot            bool
-	EnableStorageIncentives       bool
 }
 
 const (
@@ -193,15 +157,12 @@ func NewBee(ctx context.Context, networkID uint64, logger log.Logger, o *Options
 		erc20Service       erc20.Service
 	)
 
-	chainEnabled := isChainEnabled(o, o.BlockchainRpcEndpoint, logger)
-
 	chainBackend, chainID, err = InitChain(
 		ctx,
 		logger,
 		o.BlockchainRpcEndpoint,
 		o.ChainID,
-		o.BlockTime,
-		chainEnabled)
+		o.BlockTime)
 	if err != nil {
 		return nil, fmt.Errorf("init chain: %w", err)
 	}
@@ -217,13 +178,6 @@ func NewBee(ctx context.Context, networkID uint64, logger log.Logger, o *Options
 	b.transactionMonitorCloser = transactionMonitor
 
 	var authenticator auth.Authenticator
-
-	if o.Restricted {
-		if authenticator, err = auth.New(o.TokenEncryptionKey, o.AdminPasswordHash, logger); err != nil {
-			return nil, fmt.Errorf("authenticator: %w", err)
-		}
-		logger.Info("starting with restricted APIs")
-	}
 
 	var debugService *api.Service
 
@@ -297,7 +251,6 @@ func NewBee(ctx context.Context, networkID uint64, logger log.Logger, o *Options
 		debugService.Configure(authenticator, tracer, api.Options{
 			CORSAllowedOrigins: o.CORSAllowedOrigins,
 			WsPingPeriod:       60 * time.Second,
-			Restricted:         o.Restricted,
 		}, extraOpts, chainID, erc20Service)
 
 		debugService.MountTechnicalDebug()
@@ -444,16 +397,3 @@ func (b *Bee) Shutdown() error {
 }
 
 var ErrShutdownInProgress error = errors.New("shutdown in progress")
-
-func isChainEnabled(o *Options, swapEndpoint string, logger log.Logger) bool {
-	chainDisabled := swapEndpoint == ""
-	lightMode := !o.FullNodeMode
-
-	if lightMode && chainDisabled { // ultra light mode is LightNode mode with chain disabled
-		logger.Info("starting with a disabled chain backend")
-		return false
-	}
-
-	logger.Info("starting with an enabled chain backend")
-	return true // all other modes operate require chain enabled
-}
