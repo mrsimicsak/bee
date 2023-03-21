@@ -226,6 +226,9 @@ func NewBee(ctx context.Context, networkID uint64, logger log.Logger, o *Options
 	)
 
 	agent = storageincentives.New(chainBackend, logger, o.BlockTime, storageincentives.DefaultBlocksPerRound, storageincentives.DefaultBlocksPerPhase)
+	if agent == nil {
+		return nil, fmt.Errorf("failed to create storage incentives agent")
+	}
 	b.storageIncetivesCloser = agent
 
 	if o.DebugAPIAddr != "" {

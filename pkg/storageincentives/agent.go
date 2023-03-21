@@ -70,10 +70,14 @@ func New(
 		blocksPerRound: blocksPerRound,
 		quit:           make(chan struct{}),
 	}
-	address := common.HexToAddress("0x8c26b7CA61A6608B011cBa43d8cA4476B6D8dA17")
+	address := common.HexToAddress("8c26b7CA61A6608B011cBa43d8cA4476B6D8dA17")
+
+	s.logger.Info("Contecting to Redist Contract at address: ", address.String())
 
 	contract, err := redistribution.NewRedistribution(address, s.backend)
-	if err == nil {
+	if err != nil {
+
+		s.logger.Error(err, "failed to connect to redist contract.")
 		return nil
 	}
 	s.contract = *contract
