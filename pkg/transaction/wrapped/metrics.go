@@ -132,6 +132,18 @@ func newMetrics() metrics {
 			Name:      "calls_chain_id",
 			Help:      "Count of eth_chainId rpc calls",
 		}),
+		PendingCodeAtCalls: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: m.Namespace,
+			Subsystem: subsystem,
+			Name:      "calls_pending_code_at",
+			Help:      "Count of eth_PendingCodeAt rpc calls",
+		}),
+		SubscribeFilterLogsCalls: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: m.Namespace,
+			Subsystem: subsystem,
+			Name:      "calls_subscribe_filter_logs",
+			Help:      "Count of eth_SubscribeFilterLogs rpc calls",
+		}),
 	}
 }
 
