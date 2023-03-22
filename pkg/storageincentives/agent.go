@@ -6,12 +6,14 @@ package storageincentives
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"math/big"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethersphere/bee/pkg/log"
@@ -115,6 +117,35 @@ func (a *Agent) GetBlockEvents(ctx context.Context, blockNum *big.Int) ([]BlockE
 // the sample is submitted, and in the reveal phase, the obfuscation key from the commit phase is submitted.
 // Next, in the claim phase, we check if we've won, and the cycle repeats. The cycle must occur in the length of one round.
 func (a *Agent) start(blockTime time.Duration, blocksPerRound, blocksPerPhase uint64) {
+
+	test := make(chan *redistribution.RedistributionCommitted)
+
+	opts := &bind.WatchOpts{
+		Start:   nil,
+		Context: context.Background(),
+	}
+
+	test2, err := a.contract.WatchCommitted(opts, test)
+	if err != nil {
+		a.logger.Error(err, "Failed to create watch on commited events")
+		return
+	}
+
+	defer test2.Unsubscribe()
+
+	go func() {
+		for {
+			select {
+			case test3 := <-test:
+				var buf [len(test3.Overlay)*2 + 2]byte
+				copy(buf[:2], "0x")
+				hex.Encode(buf[2:], test3.Overlay[:])
+
+				a.logger.Info("New Commit by: ", string(buf[:]))
+			}
+
+		}
+	}()
 
 	defer a.wg.Done()
 
